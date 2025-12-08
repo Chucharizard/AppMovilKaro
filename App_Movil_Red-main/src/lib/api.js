@@ -142,6 +142,7 @@ export async function uploadFiles(files = []) {
 export async function getSchedule(userId) {
   if (!userId) return [];
   const candidates = [
+    `/api/v1/horarios/mi-horario`, // Endpoint correcto según README del backend
     `/api/v1/academia/${encodeURIComponent(userId)}/schedule`,
     `/api/v1/academia/schedule?user_id=${encodeURIComponent(userId)}`,
     `/api/v1/usuarios/${encodeURIComponent(userId)}/schedule`,
@@ -182,6 +183,7 @@ export async function getSchedule(userId) {
 export async function getGrades(userId) {
   if (!userId) return [];
   const candidates = [
+    `/api/v1/notas/mis-notas`, // Endpoint correcto según README del backend
     `/api/v1/academia/${encodeURIComponent(userId)}/grades`,
     `/api/v1/academia/grades?user_id=${encodeURIComponent(userId)}`,
     `/api/v1/usuarios/${encodeURIComponent(userId)}/grades`,
@@ -486,15 +488,18 @@ export async function respondToApplication(applicationId, action = 'accept') {
 
 // Messaging
 export async function getChats() {
-  return await request('/api/v1/chats', { method: 'GET' });
+  // Endpoint correcto según README del backend
+  return await request('/api/v1/mensajes/conversaciones', { method: 'GET' });
 }
 
 export async function getChatMessages(chatId) {
-  return await request(`/api/v1/chats/${chatId}/messages`, { method: 'GET' });
+  // Endpoint correcto según README del backend
+  return await request(`/api/v1/mensajes/conversacion/${chatId}`, { method: 'GET' });
 }
 
 export async function sendMessage(chatId, payload) {
-  return await request(`/api/v1/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify(payload) });
+  // Endpoint correcto según README del backend
+  return await request('/api/v1/mensajes', { method: 'POST', body: JSON.stringify({ ...payload, conversacion_id: chatId }) });
 }
 
 // Friends / Notifications / Profile

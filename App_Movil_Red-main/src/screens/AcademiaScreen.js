@@ -8,6 +8,75 @@ import { Button } from '../components/UI';
 import theme from '../theme';
 import { mockSchedule, mockGrades } from '../mock/mockData';
 
+// Función para transformar horario del backend al formato de UI
+function transformScheduleData(backendSchedule) {
+  if (!Array.isArray(backendSchedule) || backendSchedule.length === 0) {
+    return [];
+  }
+
+  // Agrupar por día de la semana
+  const dayMap = {};
+  backendSchedule.forEach(item => {
+    const day = item.dia_semana || item.day || 'Sin día';
+    if (!dayMap[day]) {
+      dayMap[day] = [];
+    }
+
+    const timeStart = item.hora_inicio || item.time_start || '';
+    const timeEnd = item.hora_fin || item.time_end || '';
+    const time = timeStart && timeEnd
+      ? `${timeStart.substring(0, 5)}-${timeEnd.substring(0, 5)}`
+      : (item.time || 'Sin horario');
+
+    dayMap[day].push({
+      time: time,
+      subject: item.materia?.nombre_materia
+        || item.subject
+        || item.nombre_materia
+        || (item.id_grupo ? `Grupo ${item.id_grupo}` : 'Clase'),
+      room: item.aula || item.room || item.salon || 'Sin aula',
+      teacher: item.docente || item.teacher || item.profesor || null,
+    });
+  });
+
+  // Convertir a array ordenado por día
+  const dayOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  return dayOrder
+    .filter(day => dayMap[day])
+    .map(day => ({
+      day,
+      items: dayMap[day],
+    }));
+}
+
+// Función para transformar notas del backend al formato de UI
+function transformGradesData(backendGrades) {
+  if (!Array.isArray(backendGrades) || backendGrades.length === 0) {
+    return [];
+  }
+
+  return backendGrades.map(item => {
+    // Obtener nombre de materia
+    const subject = item.materia?.nombre_materia
+      || item.subject
+      || item.nombre_materia
+      || 'Materia sin nombre';
+
+    // Obtener nota y convertir de escala 0-100 a 0-5
+    let grade = item.nota || item.grade || item.calificacion || 0;
+
+    // Si la nota es mayor a 5, asumimos que está en escala 0-100 y la convertimos a 0-5
+    if (typeof grade === 'number' && grade > 5) {
+      grade = (grade / 100) * 5;
+    }
+
+    return {
+      subject,
+      grade: grade.toFixed(1),
+    };
+  });
+}
+
 export default function AcademiaScreen({ user: userProp }) {
   const [tab, setTab] = useState('horario');
   const [schedule, setSchedule] = useState(null);
@@ -62,11 +131,23 @@ export default function AcademiaScreen({ user: userProp }) {
         console.log('[Academia] getGrades response:', g);
 
         // Normalizar respuestas: aceptar { data: [...] } o directamente array
-        const normSchedule = s ? (Array.isArray(s) ? s : (s && Array.isArray(s.data) ? s.data : (s && s.schedule ? s.schedule : []))) : mockSchedule;
-        const normGrades = g ? (Array.isArray(g) ? g : (g && Array.isArray(g.data) ? g.data : (g && g.grades ? g.grades : []))) : mockGrades;
+        const rawSchedule = s ? (Array.isArray(s) ? s : (s && Array.isArray(s.data) ? s.data : (s && s.schedule ? s.schedule : []))) : null;
+        const rawGrades = g ? (Array.isArray(g) ? g : (g && Array.isArray(g.data) ? g.data : (g && g.grades ? g.grades : []))) : null;
 
-        console.log('[Academia] Horario normalizado:', normSchedule);
-        console.log('[Academia] Notas normalizadas:', normGrades);
+        console.log('[Academia] Horario raw:', rawSchedule);
+        console.log('[Academia] Notas raw:', rawGrades);
+
+        // Transformar datos del backend al formato que esperan los componentes UI
+        const normSchedule = rawSchedule && rawSchedule.length > 0
+          ? transformScheduleData(rawSchedule)
+          : mockSchedule;
+
+        const normGrades = rawGrades && rawGrades.length > 0
+          ? transformGradesData(rawGrades)
+          : mockGrades;
+
+        console.log('[Academia] Horario transformado:', normSchedule);
+        console.log('[Academia] Notas transformadas:', normGrades);
 
         if (mounted) {
           setSchedule(normSchedule);

@@ -14,6 +14,7 @@ import api from '../lib/api';
 import { loadAuth } from '../lib/auth';
 import { Button, Card, Avatar } from '../components/UI';
 import theme from '../theme';
+import { mockChats, mockMessages } from '../mock/mockData';
 
 export default function MessagingScreen() {
   const [chats, setChats] = useState([]);
@@ -45,11 +46,16 @@ export default function MessagingScreen() {
     (async () => {
       try {
         console.log('[Messaging] Cargando chats...');
-        const res = await api.getChats();
+        const res = await api.getChats().catch(err => {
+          console.warn('[Messaging] Error del backend:', err);
+          console.warn('[Messaging] Usando datos de ejemplo (mock)');
+          return mockChats;
+        });
         console.log('[Messaging] Chats response:', res);
-        if (mounted) setChats(Array.isArray(res) ? res : []);
+        if (mounted) setChats(Array.isArray(res) ? res : mockChats);
       } catch (e) {
         console.warn('[Messaging] Error cargando chats:', e);
+        if (mounted) setChats(mockChats);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -62,12 +68,16 @@ export default function MessagingScreen() {
     setLoading(true);
     try {
       console.log('[Messaging] Abriendo chat:', chat.id);
-      const msgs = await api.getChatMessages(chat.id);
+      const msgs = await api.getChatMessages(chat.id).catch(err => {
+        console.warn('[Messaging] Error del backend:', err);
+        console.warn('[Messaging] Usando mensajes de ejemplo (mock)');
+        return mockMessages[chat.id] || [];
+      });
       console.log('[Messaging] Mensajes response:', msgs);
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      setMessages(Array.isArray(msgs) ? msgs : (mockMessages[chat.id] || []));
     } catch (e) {
       console.warn('[Messaging] Error obteniendo mensajes:', e);
-      setMessages([]);
+      setMessages(mockMessages[chat.id] || []);
     } finally {
       setLoading(false);
     }

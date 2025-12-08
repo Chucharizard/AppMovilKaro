@@ -222,13 +222,12 @@ export async function getGrades(userId) {
 // Carpooling: try multiple common endpoints and normalize responses
 export async function getCarpools() {
   const candidates = [
+    '/api/v1/rutas-carpooling', // Endpoint correcto según README del backend
+    '/api/v1/rutas-carpooling?limit=100',
     '/api/v1/carpooling',
     '/api/v1/carpools',
-    '/api/v1/carpooling/list',
-    '/api/v1/carpooling/all',
     '/api/v1/rutas',
     '/api/v1/rutas/carpooling',
-    '/api/v1/carpooling?limit=100',
   ];
   let lastErr = null;
   for (const p of candidates) {
@@ -271,11 +270,10 @@ export async function getCarpools() {
 
 export async function createCarpool(payload) {
   const candidates = [
+    { method: 'POST', path: '/api/v1/rutas-carpooling', body: JSON.stringify(payload) }, // Endpoint correcto según README del backend
     { method: 'POST', path: '/api/v1/carpooling', body: JSON.stringify(payload) },
     { method: 'POST', path: '/api/v1/carpools', body: JSON.stringify(payload) },
     { method: 'POST', path: '/api/v1/rutas', body: JSON.stringify(payload) },
-    { method: 'POST', path: '/api/v1/carpooling/create', body: JSON.stringify(payload) },
-    { method: 'POST', path: '/api/v1/carpooling', body: new URLSearchParams(payload).toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   ];
   let lastErr = null;
   for (const a of candidates) {
@@ -379,10 +377,9 @@ export async function getCarpoolApplications(carpoolId) {
 export async function applyToCarpool(carpoolId, seats = 1) {
   if (!carpoolId) throw new Error('carpoolId required');
   const candidates = [
+    { method: 'POST', path: `/api/v1/pasajeros`, body: JSON.stringify({ id_ruta: carpoolId, seats }) }, // Endpoint correcto según README del backend
     { method: 'POST', path: `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/apply`, body: JSON.stringify({ seats }) },
-    { method: 'POST', path: `/api/v1/carpooling/apply`, body: JSON.stringify({ carpool_id: carpoolId, seats }) },
     { method: 'POST', path: `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/postular`, body: JSON.stringify({ seats }) },
-    { method: 'POST', path: `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/postulaciones`, body: JSON.stringify({ seats }) },
   ];
   let lastErr = null;
   for (const a of candidates) {
@@ -422,10 +419,10 @@ export async function cancelCarpoolApplication(carpoolIdOrApplicationId) {
 export async function getMyCarpools(userId) {
   // List carpools created by a user
   const candidates = [
+    `/api/v1/rutas-carpooling/mis-rutas`, // Endpoint correcto según README del backend
+    `/api/v1/carpooling/mis_rutas`,
     `/api/v1/carpooling?owner_id=${encodeURIComponent(userId)}`,
     `/api/v1/usuarios/${encodeURIComponent(userId)}/carpooling`,
-    `/api/v1/carpooling/owner/${encodeURIComponent(userId)}`,
-    `/api/v1/carpooling/mis_rutas`,
   ];
   for (const p of candidates) {
     try {
@@ -465,12 +462,11 @@ export async function getMyApplications(userId) {
 
 export async function respondToApplication(applicationId, action = 'accept') {
   if (!applicationId) throw new Error('applicationId required');
-  const act = action === 'accept' ? 'accept' : (action === 'rechazar' || action === 'reject' ? 'reject' : action);
+  const act = action === 'accept' ? 'aceptado' : (action === 'rechazar' || action === 'reject' ? 'rechazado' : action);
   const candidates = [
+    { method: 'PUT', path: `/api/v1/pasajeros/${encodeURIComponent(applicationId)}`, body: JSON.stringify({ estado: act }) }, // Endpoint correcto según README del backend
     { method: 'POST', path: `/api/v1/carpooling/applications/${encodeURIComponent(applicationId)}/${act}` },
-    { method: 'POST', path: `/api/v1/carpooling/applications/${encodeURIComponent(applicationId)}/respond`, body: JSON.stringify({ action: act }) },
     { method: 'PUT', path: `/api/v1/carpooling/applications/${encodeURIComponent(applicationId)}`, body: JSON.stringify({ estado: act }) },
-    { method: 'POST', path: `/api/v1/carpooling/respond`, body: JSON.stringify({ application_id: applicationId, action: act }) },
   ];
   let lastErr = null;
   for (const a of candidates) {
@@ -504,10 +500,21 @@ export async function sendMessage(chatId, payload) {
 
 // Friends / Notifications / Profile
 export async function getFriends() {
-  // El endpoint /api/v1/amigos/lista tiene un bug en el backend (SQL error con columnas)
-  // Usamos solicitudes-recibidas + solicitudes-enviadas como alternativa
-  console.log('[api.getFriends] intentando endpoints alternativos...');
+  // Endpoint correcto según README del backend
+  console.log('[api.getFriends] obteniendo lista de amigos...');
   try {
+    const lista = await request('/api/v1/amigos/lista', { method: 'GET' }).catch(err => {
+      console.warn('[api.getFriends] /amigos/lista failed', err);
+      return null;
+    });
+
+    if (Array.isArray(lista) && lista.length >= 0) {
+      console.log('[api.getFriends] amigos encontrados:', lista.length);
+      return lista;
+    }
+
+    // Fallback: usar solicitudes-recibidas + solicitudes-enviadas y filtrar aceptadas
+    console.log('[api.getFriends] usando fallback: solicitudes aceptadas');
     const recibidas = await request('/api/v1/amigos/solicitudes-recibidas', { method: 'GET' }).catch(err => {
       console.warn('[api.getFriends] solicitudes-recibidas failed', err);
       return [];
@@ -516,7 +523,7 @@ export async function getFriends() {
       console.warn('[api.getFriends] solicitudes-enviadas failed', err);
       return [];
     });
-    
+
     // Filtrar solo las aceptadas y combinar
     const accepted = [];
     if (Array.isArray(recibidas)) {
@@ -525,24 +532,8 @@ export async function getFriends() {
     if (Array.isArray(enviadas)) {
       accepted.push(...enviadas.filter(r => r.estado === 'aceptado'));
     }
-    
-    console.log('[api.getFriends] amigos aceptados encontrados:', accepted.length);
-    // Si no encontramos aceptados usando solicitudes, intentamos el endpoint /amigos/lista como último recurso
-    if (accepted.length === 0) {
-      try {
-        console.log('[api.getFriends] intentando fallback /api/v1/amigos/lista');
-        const lista = await request('/api/v1/amigos/lista', { method: 'GET' }).catch(err => {
-          console.warn('[api.getFriends] /amigos/lista failed', err);
-          return [];
-        });
-        if (Array.isArray(lista) && lista.length > 0) {
-          console.log('[api.getFriends] fallback lista obtuvo:', lista.length);
-          return lista;
-        }
-      } catch (e) {
-        console.warn('[api.getFriends] fallback lista error', e);
-      }
-    }
+
+    console.log('[api.getFriends] amigos aceptados (fallback):', accepted.length);
     return accepted;
   } catch (e) {
     console.warn('[api.getFriends] error general', e);
@@ -638,9 +629,9 @@ export async function sendFriendRequest(payload = {}) {
 // Respond to a friend request (accept/reject). Accept action: 'aceptar' or 'rechazar'
 export async function respondFriendRequest(requestId, action = 'aceptar') {
   const attempts = [
+    { method: 'PUT', path: `/api/v1/amigos/solicitud/${requestId}?accion=${action}`, body: undefined }, // Endpoint correcto según README del backend
+    { method: 'PUT', path: `/api/v1/amigos/solicitud/${requestId}`, body: JSON.stringify({ accion: action }) },
     { method: 'POST', path: `/api/v1/amigos/solicitudes/${requestId}/${action}` },
-    { method: 'POST', path: `/api/v1/amigos/${requestId}/${action}` },
-    { method: 'PUT', path: `/api/v1/amigos/solicitudes/${requestId}` , body: JSON.stringify({ estado: action === 'aceptar' ? 'aceptado' : 'rechazado' })},
   ];
   let lastErr = null;
   for (const a of attempts) {
@@ -658,6 +649,7 @@ export async function respondFriendRequest(requestId, action = 'aceptar') {
 // Remove friend / cancel request
 export async function removeFriendOrCancel(requestOrFriendId) {
   const attempts = [
+    { method: 'DELETE', path: `/api/v1/amigos/eliminar/${requestOrFriendId}` }, // Endpoint correcto según README del backend
     { method: 'DELETE', path: `/api/v1/amigos/${requestOrFriendId}` },
     { method: 'POST', path: `/api/v1/amigos/${requestOrFriendId}/eliminar` },
   ];
@@ -679,10 +671,10 @@ export async function searchUsers(query) {
   if (!query) return [];
   const q = encodeURIComponent(query);
   const attempts = [
+    { method: 'GET', path: `/api/v1/amigos/buscar?q=${q}` }, // Endpoint correcto según README del backend
+    { method: 'GET', path: `/api/v1/usuarios/search/query?q=${q}` },
     { method: 'GET', path: `/api/v1/usuarios?query=${q}` },
-    { method: 'GET', path: `/api/v1/usuarios/search?query=${q}` },
     { method: 'GET', path: `/api/v1/usuarios/buscar?query=${q}` },
-    { method: 'GET', path: `/api/v1/usuarios?term=${q}` },
   ];
   let lastErr = null;
   for (const a of attempts) {

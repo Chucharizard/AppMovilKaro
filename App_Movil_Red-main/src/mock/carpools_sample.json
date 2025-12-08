@@ -1,0 +1,24 @@
+[
+  {
+    "id": "sample-1",
+    "title": "Ruta: Universidad -> Centro",
+    "owner": { "id_user": "user-1", "nombre": "Rosita" },
+    "origin": { "latitude": 4.60971, "longitude": -74.08175, "address": "Universidad" },
+    "destination": { "latitude": 4.628, "longitude": -74.063, "address": "Centro" },
+    "available_seats": 3,
+    "price": 2000,
+    "departure_at": "2025-12-08T08:00:00",
+    "description": "Salida desde la entrada principal."
+  },
+  {
+    "id": "sample-2",
+    "title": "Ruta: Norte -> Sur",
+    "owner": { "id_user": "user-2", "nombre": "Andrés" },
+    "origin": { "latitude": 4.700, "longitude": -74.020, "address": "Estación Norte" },
+    "destination": { "latitude": 4.600, "longitude": -74.080, "address": "Plaza Sur" },
+    "available_seats": 2,
+    "price": 1500,
+    "departure_at": "2025-12-08T09:30:00",
+    "description": "Punto de encuentro: parada 5."
+  }
+]

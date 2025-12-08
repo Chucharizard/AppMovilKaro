@@ -1,0 +1,44 @@
+{
+  "local_results": [
+    {
+      "position": 1,
+      "title": "Grace Street Coffee & Desserts",
+      "place_id": "ChIJ9Sto4ahZwokRXpWiQYiOOOo",
+      "data_id": "0x89c259a8e1682bf5:0xea388e8841a2955e",
+      "data_cid": "16877396319438804318",
+      "gps_coordinates": {
+        "latitude": 40.7477172,
+        "longitude": -73.98653019999999
+      },
+      "address": "17 W 32nd St, New York, NY 10001",
+      "thumbnail": "https://lh3.googleusercontent.com/gps-proxy/...",
+      "rating": 4.5
+    },
+    {
+      "position": 2,
+      "title": "COFFEED",
+      "place_id": "ChIJG3Qn9KhZwokRbLEgvIuSq6o",
+      "data_id": "0x89c259a8f427741b:0xaaab928bbc20b16c",
+      "gps_coordinates": {
+        "latitude": 40.7477348,
+        "longitude": -73.9861939
+      },
+      "address": "11 W 32nd St, New York, NY 10001",
+      "thumbnail": "https://lh5.googleusercontent.com/p/AF1QipOR4...",
+      "rating": 4.2
+    },
+    {
+      "position": 3,
+      "title": "Starbucks",
+      "place_id": "ChIJs7xxIFVYwokRGt4Tw5wSx1w",
+      "data_id": "0x89c258552071bcb3:0x5cc7129cc313de1a",
+      "gps_coordinates": {
+        "latitude": 40.756694,
+        "longitude": -73.985893
+      },
+      "address": "1500 Broadway, New York, NY 10036",
+      "thumbnail": "https://lh5.googleusercontent.com/p/AF1QipOy...",
+      "rating": 4
+    }
+  ]
+}

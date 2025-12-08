@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "red-social-expo",
+    "slug": "red-social-expo",
+    "version": "1.0.0",
+    "sdkVersion": "48.0.0",
+    "android": {
+      "package": "com.redsocial.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AlZaSyABvKLQ0xiYdWeWmkCj8r1uWJLzrD1B-rM"
+        }
+      }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ]
+  }
+}

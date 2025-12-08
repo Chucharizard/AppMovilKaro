@@ -1,5 +1,5 @@
 // API helper library
-import { BACKEND_URL } from '../config';
+import { BACKEND_URL, ORS_API_KEY } from '../config';
 import { loadAuth, clearAuth } from './auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

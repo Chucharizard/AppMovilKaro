@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Button, TextInput, Image, Alert, ActivityIndicator, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, TextInput, Image, Alert, ActivityIndicator, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import api from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAuth } from '../lib/auth';
+import { Button, Card, Input, Avatar } from '../components/UI';
+import theme from '../theme';
 
 const FILTERS = ['Todas', 'Solo amigos', 'Más likes'];
 
@@ -159,71 +161,109 @@ function PostItem({ post, onPreview }) {
   };
 
   return (
-    <View style={styles.post}>
-      <Text style={styles.postAuthor}>{author}</Text>
-      <Text>{content}</Text>
+    <Card style={styles.post}>
+      <View style={styles.postHeader}>
+        <Avatar name={author} size="md" />
+        <View style={styles.postHeaderText}>
+          <Text style={styles.postAuthor}>{author}</Text>
+          <Text style={styles.postDate}>{formatDate(date)}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.postContent}>{content}</Text>
+
       {post.media && post.media.length > 0 && (
-        <View style={{ flexDirection: 'row', marginTop: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mediaContainer}>
           {post.media.map((m, idx) => {
             const uri = typeof m === 'string' ? m : (m.url || m.file_url || m.path || m.key);
             if (!uri) return null;
             return (
-              <Image key={uri + idx} source={{ uri }} style={{ width: 120, height: 120, marginRight: 8, borderRadius: 6 }} />
+              <TouchableOpacity key={uri + idx} onPress={() => onPreview(uri)}>
+                <Image source={{ uri }} style={styles.mediaImage} />
+              </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       )}
 
-      <View style={{ marginTop: 8 }}>
-        {showReactions ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingVertical: 6 }}>
+      <View style={styles.reactionsContainer}>
+        {showReactions && (
+          <View style={styles.reactionsPanel}>
             {REACTIONS.map(r => {
               const selected = userReaction === r.key;
               return (
-                <TouchableOpacity key={r.key} onPress={() => handleReact(r.key)} disabled={reacting} style={{ padding: 6, marginRight: 8, borderRadius: 20, backgroundColor: selected ? 'rgba(10,132,255,0.12)' : 'transparent' }}>
-                  <Text style={{ fontSize: 24 }}>{r.emoji}</Text>
+                <TouchableOpacity
+                  key={r.key}
+                  onPress={() => handleReact(r.key)}
+                  disabled={reacting}
+                  style={[styles.reactionButton, selected && styles.reactionButtonSelected]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reactionEmoji}>{r.emoji}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        ) : null}
+        )}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => setShowReactions(s => !s)} style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }}>
-              <Text style={{ fontSize: 16 }}>{userReaction ? 'Reaccionado' : 'Reaccionar'}</Text>
-              <Text style={{ marginLeft: 8, color: '#666' }}>{count}</Text>
+        <View style={styles.actionsBar}>
+          <View style={styles.actionsLeft}>
+            <TouchableOpacity
+              onPress={() => setShowReactions(s => !s)}
+              style={styles.actionButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonText}>{userReaction ? 'Reaccionado' : 'Reaccionar'}</Text>
+              {count > 0 && <Text style={styles.actionCount}>{count}</Text>}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setShowComments(s => !s); if (!showComments) setTimeout(loadComments, 10); }} style={{ padding: 8 }}>
-              <Text style={{ fontSize: 16 }}>Comentar</Text>
+            <TouchableOpacity
+              onPress={() => { setShowComments(s => !s); if (!showComments) setTimeout(loadComments, 10); }}
+              style={styles.actionButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonText}>Comentar</Text>
             </TouchableOpacity>
           </View>
-          <Text style={{ marginLeft: 6, color: '#666' }}>{formatDate(date)}</Text>
         </View>
 
-        {/* Comments section */}
-        {showComments ? (
-          <View style={{ marginTop: 8 }}>
-            {commentsLoading ? <ActivityIndicator /> : (
-              comments.map(c => (
-                <View key={c.id_comentario || c.id || Math.random()} style={{ paddingVertical: 6, borderTopWidth: 1, borderColor: '#f0f0f0' }}>
-                  <Text style={{ fontWeight: '600' }}>{(c.usuario && (c.usuario.nombre || c.usuario.user)) || 'Anon'}</Text>
-                  <Text>{c.contenido || c.texto || c.comentario || ''}</Text>
-                  <Text style={{ color: '#888', fontSize: 12 }}>{(c.fecha_creacion && new Date(c.fecha_creacion).toLocaleString()) || ''}</Text>
-                </View>
-              ))
+        {showComments && (
+          <View style={styles.commentsSection}>
+            {commentsLoading ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : (
+              comments.map(c => {
+                const commentAuthor = (c.usuario && (c.usuario.nombre || c.usuario.user)) || 'Anon';
+                return (
+                  <View key={c.id_comentario || c.id || Math.random()} style={styles.commentItem}>
+                    <Avatar name={commentAuthor} size="sm" />
+                    <View style={styles.commentContent}>
+                      <Text style={styles.commentAuthor}>{commentAuthor}</Text>
+                      <Text style={styles.commentText}>{c.contenido || c.texto || c.comentario || ''}</Text>
+                      <Text style={styles.commentDate}>
+                        {(c.fecha_creacion && new Date(c.fecha_creacion).toLocaleString()) || ''}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
             )}
 
-            <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
-              <TextInput placeholder="Escribe un comentario..." value={newComment} onChangeText={setNewComment} style={[{ flex: 1, borderWidth: 1, borderColor: '#eee', padding: 8, borderRadius: 6, backgroundColor: '#fff' }]} />
-              <TouchableOpacity onPress={handleAddComment} style={{ marginLeft: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#0a84ff', borderRadius: 6 }}>
-                <Text style={{ color: '#fff' }}>Enviar</Text>
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                placeholder="Escribe un comentario..."
+                value={newComment}
+                onChangeText={setNewComment}
+                style={styles.commentInput}
+                placeholderTextColor={theme.colors.textLight}
+              />
+              <TouchableOpacity onPress={handleAddComment} style={styles.commentSubmitButton} activeOpacity={0.7}>
+                <Text style={styles.commentSubmitText}>Enviar</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : null}
+        )}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -461,71 +501,105 @@ export default function SocialScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ padding: 8, backgroundColor: '#fafafa' }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity onPress={() => setViewMode('feed')} style={[styles.filterBtn, viewMode === 'feed' && styles.filterActive]}>
-              <Text style={viewMode === 'feed' ? styles.filterTextActive : styles.filterText}>Publicaciones</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setViewMode('events'); setTimeout(() => loadEvents(), 30); }} style={[styles.filterBtn, viewMode === 'events' && styles.filterActive]}>
-              <Text style={viewMode === 'events' ? styles.filterTextActive : styles.filterText}>Eventos</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={() => { if (viewMode === 'events') loadEvents(); else onRefresh(); }} style={{ padding: 6 }}>
-            <Text style={{ color: '#0a84ff' }}>Actualizar</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.viewModeContainer}>
+          <TouchableOpacity
+            onPress={() => setViewMode('feed')}
+            style={[styles.viewModeButton, viewMode === 'feed' && styles.viewModeButtonActive]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'feed' && styles.viewModeTextActive]}>
+              Publicaciones
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setViewMode('events'); setTimeout(() => loadEvents(), 30); }}
+            style={[styles.viewModeButton, viewMode === 'events' && styles.viewModeButtonActive]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'events' && styles.viewModeTextActive]}>
+              Eventos
+            </Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.filters}>
-        {FILTERS.map(f => (
-          <TouchableOpacity key={f} onPress={() => onFilterChange(f)} style={[styles.filterBtn, filter === f && styles.filterActive]}>
-            <Text style={filter === f ? styles.filterTextActive : styles.filterText}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-        </View>
+        <TouchableOpacity
+          onPress={() => { if (viewMode === 'events') loadEvents(); else onRefresh(); }}
+          style={styles.refreshButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshButtonText}>↻</Text>
+        </TouchableOpacity>
       </View>
 
-      {viewMode === 'feed' ? (
-        <View style={{ padding: 8 }}>
-        <TextInput placeholder="Escribe una nueva publicación..." value={newText} onChangeText={setNewText} style={styles.input} multiline />
-        <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
-          <Button title="Agregar foto" onPress={pickImage} />
-          <View style={{ width: 12 }} />
-          <Button title="Refrescar" onPress={onRefresh} />
+      {viewMode === 'feed' && (
+        <View style={styles.filtersContainer}>
+          {FILTERS.map(f => (
+            <TouchableOpacity
+              key={f}
+              onPress={() => onFilterChange(f)}
+              style={[styles.filterBtn, filter === f && styles.filterActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      )}
+
+      {viewMode === 'feed' ? (
+        <Card style={styles.createPostCard}>
+          <Input
+            placeholder="¿Qué estás pensando?"
+            value={newText}
+            onChangeText={setNewText}
+            multiline
+            style={styles.createPostInput}
+          />
 
           {selectedFiles.length > 0 && (
-            <ScrollView horizontal style={{ marginTop: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedFilesContainer}>
               {selectedFiles.map((f, idx) => (
-                <View key={f.uri + idx} style={{ marginRight: 8 }}>
-                  <TouchableOpacity onPress={() => setPreviewUri(f.uri)}>
-                    <Image source={{ uri: f.uri }} style={{ width: 100, height: 100, borderRadius: 6 }} />
+                <View key={f.uri + idx} style={styles.selectedFileItem}>
+                  <TouchableOpacity onPress={() => setPreviewUri(f.uri)} activeOpacity={0.7}>
+                    <Image source={{ uri: f.uri }} style={styles.selectedFileImage} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))} style={styles.deleteBtn}>
-                    <Text style={styles.deleteBtnText}>✕</Text>
+                  <TouchableOpacity
+                    onPress={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                    style={styles.deleteFileButton}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.deleteFileButtonText}>✕</Text>
                   </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
           )}
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Button title="Publicar" onPress={onCreate} />
+          <View style={styles.createPostActions}>
+            <Button variant="outline" size="sm" onPress={pickImage}>
+              📷 Foto
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onPress={onCreate}
+              loading={uploading}
+              disabled={!newText.trim() && selectedFiles.length === 0}
+              style={styles.publishButton}
+            >
+              Publicar
+            </Button>
           </View>
-          <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
-            {uploading ? <ActivityIndicator /> : null}
-          </View>
-        </View>
-        {/* Preview modal */}
-        <Modal visible={!!previewUri} transparent animationType="fade">
-          <TouchableWithoutFeedback onPress={() => setPreviewUri(null)}>
-            <View style={styles.previewContainer}>
-              {previewUri ? <Image source={{ uri: previewUri }} style={styles.previewImage} /> : null}
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-        </View>
+
+          <Modal visible={!!previewUri} transparent animationType="fade">
+            <TouchableWithoutFeedback onPress={() => setPreviewUri(null)}>
+              <View style={styles.previewContainer}>
+                {previewUri ? <Image source={{ uri: previewUri }} style={styles.previewImage} /> : null}
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        </Card>
       ) : (
         <View style={{ padding: 8 }}>
           <Text style={{ fontWeight: '700', marginBottom: 8 }}>Crear evento</Text>
@@ -612,17 +686,286 @@ export default function SocialScreen() {
 }
 
 const styles = StyleSheet.create({
-  filters: { flexDirection: 'row', padding: 8, justifyContent: 'space-around', backgroundColor: '#fafafa' },
-  filterBtn: { padding: 8 },
-  filterActive: { borderBottomWidth: 2, borderColor: '#0a84ff' },
-  filterText: { color: '#444' },
-  filterTextActive: { color: '#0a84ff', fontWeight: '600' },
-  post: { padding: 12, borderBottomWidth: 1, borderColor: '#eee' },
-  postAuthor: { fontWeight: '700', marginBottom: 6 },
-  postMeta: { marginTop: 8, color: '#666', fontSize: 12 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 8, borderRadius: 6, minHeight: 40, backgroundColor: '#fff' },
-  deleteBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  deleteBtnText: { color: '#fff', fontWeight: '700' },
-  previewContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center' },
-  previewImage: { width: '92%', height: '80%', resizeMode: 'contain', borderRadius: 8 },
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    ...theme.shadows.sm,
+  },
+  viewModeContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  viewModeButton: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+  },
+  viewModeButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  viewModeText: {
+    fontSize: theme.fonts.md,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.fontWeights.medium,
+  },
+  viewModeTextActive: {
+    color: theme.colors.surface,
+    fontWeight: theme.fontWeights.semibold,
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshButtonText: {
+    fontSize: 20,
+    color: theme.colors.surface,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceDark,
+  },
+  filterBtn: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+  },
+  filterActive: {
+    borderBottomWidth: 3,
+    borderBottomColor: theme.colors.primary,
+  },
+  filterText: {
+    fontSize: theme.fonts.sm,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.fontWeights.regular,
+  },
+  filterTextActive: {
+    color: theme.colors.primary,
+    fontWeight: theme.fontWeights.semibold,
+  },
+  createPostCard: {
+    margin: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  createPostInput: {
+    marginBottom: 0,
+  },
+  selectedFilesContainer: {
+    marginTop: theme.spacing.md,
+  },
+  selectedFileItem: {
+    marginRight: theme.spacing.sm,
+    position: 'relative',
+  },
+  selectedFileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: theme.borderRadius.md,
+  },
+  deleteFileButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteFileButtonText: {
+    color: theme.colors.surface,
+    fontSize: 16,
+    fontWeight: theme.fontWeights.bold,
+  },
+  createPostActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+  },
+  publishButton: {
+    flex: 1,
+    marginLeft: theme.spacing.sm,
+  },
+  post: {
+    marginHorizontal: theme.spacing.md,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  postHeaderText: {
+    flex: 1,
+    marginLeft: theme.spacing.md,
+  },
+  postAuthor: {
+    fontSize: theme.fonts.md,
+    fontWeight: theme.fontWeights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  postDate: {
+    fontSize: theme.fonts.xs,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  postContent: {
+    fontSize: theme.fonts.md,
+    color: theme.colors.textPrimary,
+    lineHeight: 22,
+  },
+  mediaContainer: {
+    marginTop: theme.spacing.md,
+  },
+  mediaImage: {
+    width: 280,
+    height: 280,
+    borderRadius: theme.borderRadius.md,
+    marginRight: theme.spacing.sm,
+  },
+  reactionsContainer: {
+    marginTop: theme.spacing.md,
+  },
+  reactionsPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  reactionButton: {
+    padding: theme.spacing.sm,
+    marginRight: theme.spacing.xs,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: 'transparent',
+  },
+  reactionButtonSelected: {
+    backgroundColor: `${theme.colors.primary}20`,
+  },
+  reactionEmoji: {
+    fontSize: 24,
+  },
+  actionsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.surfaceDark,
+  },
+  actionsLeft: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    marginRight: theme.spacing.md,
+  },
+  actionButtonText: {
+    fontSize: theme.fonts.sm,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.fontWeights.medium,
+  },
+  actionCount: {
+    fontSize: theme.fonts.xs,
+    color: theme.colors.primary,
+    marginLeft: theme.spacing.xs,
+    fontWeight: theme.fontWeights.semibold,
+  },
+  commentsSection: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.surfaceDark,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    marginBottom: theme.spacing.md,
+  },
+  commentContent: {
+    flex: 1,
+    marginLeft: theme.spacing.sm,
+  },
+  commentAuthor: {
+    fontSize: theme.fonts.sm,
+    fontWeight: theme.fontWeights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  commentText: {
+    fontSize: theme.fonts.sm,
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  commentDate: {
+    fontSize: theme.fonts.xs,
+    color: theme.colors.textLight,
+    marginTop: 2,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    marginTop: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  commentInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceDark,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    fontSize: theme.fonts.sm,
+    color: theme.colors.textPrimary,
+  },
+  commentSubmitButton: {
+    marginLeft: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+  },
+  commentSubmitText: {
+    color: theme.colors.surface,
+    fontSize: theme.fonts.sm,
+    fontWeight: theme.fontWeights.semibold,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceDark,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    minHeight: 40,
+    backgroundColor: theme.colors.surface,
+    fontSize: theme.fonts.md,
+    color: theme.colors.textPrimary,
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '92%',
+    height: '80%',
+    resizeMode: 'contain',
+    borderRadius: theme.borderRadius.md,
+  },
 });

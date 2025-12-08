@@ -1,6 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import theme from '../../theme';
+import { TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Botón moderno con diferentes variantes
@@ -20,113 +20,69 @@ const Button = ({
   textStyle,
   ...props
 }) => {
+  const { theme } = useTheme();
+  
   const getButtonStyle = () => {
-    const baseStyle = [styles.button, styles[`button_${size}`]];
+    const baseStyle = {
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.shadows.sm,
+    };
+
+    const sizeStyles = {
+      sm: { height: 36, paddingHorizontal: theme.spacing.md },
+      md: { height: 48, paddingHorizontal: theme.spacing.lg },
+      lg: { height: 56, paddingHorizontal: theme.spacing.xl },
+    };
 
     if (disabled || loading) {
-      baseStyle.push(styles.buttonDisabled);
-      return baseStyle;
+      return { ...baseStyle, ...sizeStyles[size], backgroundColor: theme.colors.surfaceDark, opacity: 0.6 };
     }
 
-    switch (variant) {
-      case 'primary':
-        return [...baseStyle, styles.buttonPrimary];
-      case 'secondary':
-        return [...baseStyle, styles.buttonSecondary];
-      case 'danger':
-        return [...baseStyle, styles.buttonDanger];
-      case 'success':
-        return [...baseStyle, styles.buttonSuccess];
-      case 'outline':
-        return [...baseStyle, styles.buttonOutline];
-      default:
-        return [...baseStyle, styles.buttonPrimary];
-    }
+    const variantStyles = {
+      primary: { backgroundColor: theme.colors.primary },
+      secondary: { backgroundColor: theme.colors.secondary },
+      danger: { backgroundColor: theme.colors.error },
+      success: { backgroundColor: theme.colors.success },
+      outline: { backgroundColor: 'transparent', borderWidth: 2, borderColor: theme.colors.primary },
+    };
+
+    return { ...baseStyle, ...sizeStyles[size], ...(variantStyles[variant] || variantStyles.primary) };
   };
 
   const getTextStyle = () => {
-    const baseStyle = [styles.text, styles[`text_${size}`]];
+    const sizeStyles = {
+      sm: { fontSize: theme.fonts.sm },
+      md: { fontSize: theme.fonts.md },
+      lg: { fontSize: theme.fonts.lg },
+    };
 
-    if (variant === 'outline') {
-      return [...baseStyle, styles.textOutline];
-    }
-
-    return baseStyle;
+    return {
+      color: variant === 'outline' ? theme.colors.primary : '#FFFFFF',
+      fontWeight: theme.fontWeights.semibold,
+      ...sizeStyles[size],
+    };
   };
 
   return (
     <TouchableOpacity
+      style={[getButtonStyle(), style]}
       onPress={onPress}
       disabled={disabled || loading}
-      style={[...getButtonStyle(), style]}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? theme.colors.primary : '#FFFFFF'} />
+        <ActivityIndicator
+          color={variant === 'outline' ? theme.colors.primary : '#FFFFFF'}
+          size="small"
+        />
       ) : (
-        <Text style={[...getTextStyle(), textStyle]}>{children}</Text>
+        <Text style={[getTextStyle(), textStyle]}>{children}</Text>
       )}
     </TouchableOpacity>
   );
 };
-
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.sm,
-  },
-  button_sm: {
-    height: 36,
-    paddingHorizontal: theme.spacing.md,
-  },
-  button_md: {
-    height: 48,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  button_lg: {
-    height: 56,
-    paddingHorizontal: theme.spacing.xl,
-  },
-  buttonPrimary: {
-    backgroundColor: theme.colors.primary,
-  },
-  buttonSecondary: {
-    backgroundColor: theme.colors.secondary,
-  },
-  buttonDanger: {
-    backgroundColor: theme.colors.error,
-  },
-  buttonSuccess: {
-    backgroundColor: theme.colors.success,
-  },
-  buttonOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.surfaceDark,
-    opacity: 0.6,
-  },
-  text: {
-    color: '#FFFFFF',
-    fontWeight: theme.fontWeights.semibold,
-  },
-  text_sm: {
-    fontSize: theme.fonts.sm,
-  },
-  text_md: {
-    fontSize: theme.fonts.md,
-  },
-  text_lg: {
-    fontSize: theme.fonts.lg,
-  },
-  textOutline: {
-    color: theme.colors.primary,
-  },
-});
 
 export default Button;

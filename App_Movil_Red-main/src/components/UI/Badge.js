@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import theme from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Badge para notificaciones y contadores
@@ -9,6 +9,8 @@ import theme from '../../theme';
  * @param {boolean} dot - Mostrar solo punto sin número
  */
 const Badge = ({ count = 0, variant = 'danger', dot = false, style }) => {
+  const { theme } = useTheme();
+  
   if (count === 0 && !dot) return null;
 
   const getBackgroundColor = () => {
@@ -30,8 +32,14 @@ const Badge = ({ count = 0, variant = 'danger', dot = false, style }) => {
     return (
       <View
         style={[
-          styles.dot,
-          { backgroundColor: getBackgroundColor() },
+          {
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            borderWidth: 2,
+            borderColor: theme.colors.surface,
+            backgroundColor: getBackgroundColor(),
+          },
           style,
         ]}
       />
@@ -43,38 +51,30 @@ const Badge = ({ count = 0, variant = 'danger', dot = false, style }) => {
   return (
     <View
       style={[
-        styles.badge,
-        { backgroundColor: getBackgroundColor() },
+        {
+          minWidth: 20,
+          height: 20,
+          borderRadius: 10,
+          paddingHorizontal: 6,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...theme.shadows.sm,
+          backgroundColor: getBackgroundColor(),
+        },
         style,
       ]}
     >
-      <Text style={styles.text}>{displayCount}</Text>
+      <Text
+        style={{
+          color: '#FFFFFF',
+          fontSize: 11,
+          fontWeight: theme.fontWeights.bold,
+        }}
+      >
+        {displayCount}
+      </Text>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  badge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.sm,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: theme.colors.surface,
-  },
-  text: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: theme.fontWeights.bold,
-  },
-});
 
 export default Badge;

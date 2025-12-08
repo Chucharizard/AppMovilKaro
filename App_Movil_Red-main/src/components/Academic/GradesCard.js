@@ -1,9 +1,81 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '../UI';
-import theme from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function GradesCard({ grades } = {}) {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      padding: theme.spacing.md,
+    },
+    emptyCard: {
+      alignItems: 'center',
+      paddingVertical: theme.spacing.xl,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: theme.spacing.md,
+    },
+    emptyTitle: {
+      fontSize: theme.fonts.lg,
+      fontWeight: theme.fontWeights.semibold,
+      color: theme.colors.textPrimary,
+      marginBottom: theme.spacing.xs,
+    },
+    emptyMessage: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    summaryCard: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+      paddingVertical: theme.spacing.lg,
+    },
+    summaryLabel: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.medium,
+      marginBottom: theme.spacing.xs,
+    },
+    summaryValue: {
+      fontSize: theme.fonts.xxxl,
+      fontWeight: theme.fontWeights.bold,
+    },
+    gradeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.surfaceDark,
+    },
+    gradeRowLast: {
+      borderBottomWidth: 0,
+    },
+    subjectContainer: {
+      flex: 1,
+    },
+    subjectText: {
+      fontSize: theme.fonts.md,
+      fontWeight: theme.fontWeights.medium,
+      color: theme.colors.textPrimary,
+    },
+    gradeContainer: {
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      minWidth: 60,
+      alignItems: 'center',
+    },
+    gradeText: {
+      fontSize: theme.fonts.lg,
+      fontWeight: theme.fontWeights.bold,
+    },
+  }), [theme]);
+  
   // grades expected as array of { subject, grade }
   if (!grades || !Array.isArray(grades) || grades.length === 0) {
     return (
@@ -66,73 +138,3 @@ export default function GradesCard({ grades } = {}) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: theme.spacing.md,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: theme.spacing.md,
-  },
-  emptyTitle: {
-    fontSize: theme.fonts.lg,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
-  },
-  emptyMessage: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  summaryCard: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
-  },
-  summaryLabel: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-    marginBottom: theme.spacing.xs,
-  },
-  summaryValue: {
-    fontSize: theme.fonts.xxxl,
-    fontWeight: theme.fontWeights.bold,
-  },
-  gradeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceDark,
-  },
-  gradeRowLast: {
-    borderBottomWidth: 0,
-  },
-  subjectContainer: {
-    flex: 1,
-  },
-  subjectText: {
-    fontSize: theme.fonts.md,
-    fontWeight: theme.fontWeights.medium,
-    color: theme.colors.textPrimary,
-  },
-  gradeContainer: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  gradeText: {
-    fontSize: theme.fonts.lg,
-    fontWeight: theme.fontWeights.bold,
-  },
-});

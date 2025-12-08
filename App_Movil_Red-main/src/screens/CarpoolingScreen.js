@@ -1,13 +1,353 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, RefreshControl } from 'react-native';
 import api from '../lib/api';
 import { loadAuth } from '../lib/auth';
 import MapPicker from '../components/MapPicker';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
+import { Button, Card, Avatar } from '../components/UI';
+import { useTheme } from '../context/ThemeContext';
 
 const TABS = ['Crear', 'Explorar', 'Mis Rutas', 'Mis Postulaciones'];
 
 export default function CarpoolingScreen({ user: userProp }) {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: { 
+      flex: 1, 
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: theme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      ...theme.shadows.sm,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    tabsContainer: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tabBtn: { 
+      flex: 1, 
+      paddingVertical: theme.spacing.md,
+      alignItems: 'center',
+      borderBottomWidth: 3,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: { 
+      borderBottomColor: theme.colors.primary,
+    },
+    tabIcon: {
+      fontSize: 18,
+      marginBottom: 2,
+    },
+    tabText: { 
+      color: theme.colors.textLight,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    tabTextActive: { 
+      color: theme.colors.primary,
+      fontWeight: '700',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContent: {
+      padding: theme.spacing.md,
+    },
+    emptyContainer: {
+      paddingVertical: 60,
+      alignItems: 'center',
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: theme.spacing.md,
+    },
+    emptyText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: theme.colors.textLight,
+      textAlign: 'center',
+    },
+    routeCard: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      ...theme.shadows.md,
+    },
+    routeHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    routeHeaderInfo: {
+      flex: 1,
+      marginLeft: theme.spacing.md,
+    },
+    driverName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    routeTime: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+      marginTop: 2,
+    },
+    availableBadge: {
+      backgroundColor: theme.colors.secondary,
+      borderRadius: theme.borderRadius.md,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      alignItems: 'center',
+      minWidth: 42,
+    },
+    availableBadgeText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    availableBadgeLabel: {
+      fontSize: 9,
+      color: '#FFFFFF',
+      fontWeight: '600',
+    },
+    routeBody: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    routeLocation: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    routeIcon: {
+      fontSize: 20,
+      marginRight: theme.spacing.sm,
+    },
+    routeLocationInfo: {
+      flex: 1,
+    },
+    routeLocationLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.colors.textLight,
+      textTransform: 'uppercase',
+      marginBottom: 4,
+    },
+    routeLocationText: {
+      fontSize: 14,
+      color: theme.colors.text,
+      lineHeight: 20,
+    },
+    routeDivider: {
+      alignItems: 'center',
+      paddingVertical: 4,
+    },
+    routeArrow: {
+      fontSize: 20,
+      color: theme.colors.textLight,
+    },
+    routeDescription: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+      fontStyle: 'italic',
+      marginBottom: theme.spacing.sm,
+    },
+    routeFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.sm,
+    },
+    routeStats: {
+      flex: 1,
+    },
+    routeStatItem: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+    },
+    routeActions: {
+      flexDirection: 'row',
+      gap: 8,
+      flex: 1,
+    },
+    infoButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.colors.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    infoButtonText: {
+      fontSize: 18,
+    },
+    myRouteCard: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      ...theme.shadows.md,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.primary,
+    },
+    myRouteHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    myRouteTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.colors.primary,
+    },
+    myRouteTime: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+    },
+    capacityInfo: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+    },
+    capacityText: {
+      fontSize: 13,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    applicationsSection: {
+      marginTop: theme.spacing.sm,
+    },
+    applicationsTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    applicationItem: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    applicantName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    applicantSeats: {
+      fontSize: 12,
+      color: theme.colors.textLight,
+      marginTop: 2,
+    },
+    applicationCard: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      ...theme.shadows.sm,
+    },
+    applicationHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    applicationTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    statusBadge: {
+      borderRadius: theme.borderRadius.sm,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    statusBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textTransform: 'uppercase',
+    },
+    applicationRoute: {
+      fontSize: 14,
+      color: theme.colors.text,
+    },
+    createForm: {
+      flex: 1,
+    },
+    createFormContent: {
+      padding: theme.spacing.lg,
+    },
+    formSection: {
+      marginBottom: theme.spacing.lg,
+    },
+    formLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    input: { 
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+    mapButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    mapButtonIcon: {
+      fontSize: 20,
+      marginRight: theme.spacing.sm,
+    },
+    mapButtonText: {
+      fontSize: 14,
+      color: theme.colors.text,
+      flex: 1,
+    },
+    createButton: {
+      marginTop: theme.spacing.md,
+    },
+  }), [theme]);
+  
   const [tab, setTab] = useState('Explorar');
   const [user, setUser] = useState(userProp || null);
 
@@ -27,6 +367,7 @@ export default function CarpoolingScreen({ user: userProp }) {
   const [myApplications, setMyApplications] = useState([]);
 
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -64,6 +405,17 @@ export default function CarpoolingScreen({ user: userProp }) {
     // load initial explore when component mounts
     loadExplore();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (tab === 'Explorar') await loadExplore();
+      else if (tab === 'Mis Rutas') await loadMyRoutes();
+      else if (tab === 'Mis Postulaciones') await loadMyApplications();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadExplore = async () => {
     setLoading(true);
@@ -197,18 +549,71 @@ export default function CarpoolingScreen({ user: userProp }) {
     const available = computeAvailable(item);
     const from = formatPlace(item.origen || item.origin || item.from);
     const to = formatPlace(item.destino || item.destination || item.to);
+    const driverName = item.conductor?.nombre || item.driver?.nombre || item.creator?.nombre || 'Conductor';
+    
     return (
-      <View style={styles.route}>
-        <Text style={{ fontWeight: '700' }}>{from} → {to}</Text>
-        <Text>{item.hora_salida || item.departure_time || item.time || ''} • Capacidad: {item.capacidad || item.seats_total || item.capacity || '-'} • Disponibles: {available}</Text>
-        <Text style={{ color: '#444' }}>{item.descripcion || item.description || ''}</Text>
-        <View style={{ flexDirection: 'row', marginTop: 8 }}>
-          <Button title="Ver" onPress={() => {
-            // show basic details (could be expanded)
-            Alert.alert('Ruta', `${from} → ${to}\nHora: ${item.hora_salida || item.departure_time || ''}\nDisponibles: ${available}`);
-          }} />
-          <View style={{ width: 8 }} />
-          <Button title="Postular" onPress={() => onApply(item)} disabled={available <= 0} />
+      <View style={styles.routeCard}>
+        <View style={styles.routeHeader}>
+          <Avatar name={driverName} size={48} />
+          <View style={styles.routeHeaderInfo}>
+            <Text style={styles.driverName}>{driverName}</Text>
+            <Text style={styles.routeTime}>🕐 {item.hora_salida || item.departure_time || item.time || 'Sin hora'}</Text>
+          </View>
+          <View style={styles.availableBadge}>
+            <Text style={styles.availableBadgeText}>{available}</Text>
+            <Text style={styles.availableBadgeLabel}>libres</Text>
+          </View>
+        </View>
+        
+        <View style={styles.routeBody}>
+          <View style={styles.routeLocation}>
+            <Text style={styles.routeIcon}>📍</Text>
+            <View style={styles.routeLocationInfo}>
+              <Text style={styles.routeLocationLabel}>Origen</Text>
+              <Text style={styles.routeLocationText} numberOfLines={2}>{from}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.routeDivider}>
+            <Text style={styles.routeArrow}>↓</Text>
+          </View>
+          
+          <View style={styles.routeLocation}>
+            <Text style={styles.routeIcon}>🎯</Text>
+            <View style={styles.routeLocationInfo}>
+              <Text style={styles.routeLocationLabel}>Destino</Text>
+              <Text style={styles.routeLocationText} numberOfLines={2}>{to}</Text>
+            </View>
+          </View>
+        </View>
+        
+        {item.descripcion || item.description ? (
+          <Text style={styles.routeDescription}>{item.descripcion || item.description}</Text>
+        ) : null}
+        
+        <View style={styles.routeFooter}>
+          <View style={styles.routeStats}>
+            <Text style={styles.routeStatItem}>👥 {item.capacidad || item.seats_total || item.capacity || 0} asientos</Text>
+          </View>
+          <View style={styles.routeActions}>
+            <TouchableOpacity 
+              style={styles.infoButton}
+              onPress={() => {
+                Alert.alert('📍 Detalles de Ruta', `🚗 Conductor: ${driverName}\n\n📍 Origen:\n${from}\n\n🎯 Destino:\n${to}\n\n🕐 Hora: ${item.hora_salida || item.departure_time || 'Sin especificar'}\n\n👥 Capacidad: ${item.capacidad || item.seats_total || item.capacity || 0}\n✅ Disponibles: ${available}`);
+              }}
+            >
+              <Text style={styles.infoButtonText}>ℹ️</Text>
+            </TouchableOpacity>
+            <Button
+              variant={available > 0 ? 'primary' : 'disabled'}
+              size="sm"
+              onPress={() => onApply(item)}
+              disabled={available <= 0}
+              style={{ flex: 1 }}
+            >
+              {available > 0 ? '✓ Postular' : 'Sin cupos'}
+            </Button>
+          </View>
         </View>
       </View>
     );
@@ -218,67 +623,250 @@ export default function CarpoolingScreen({ user: userProp }) {
     const from = formatPlace(item.origen || item.origin || item.from);
     const to = formatPlace(item.destino || item.destination || item.to);
     return (
-      <View style={styles.route}>
-        <Text style={{ fontWeight: '700' }}>{from} → {to}</Text>
-        <Text>Capacidad: {item.capacidad || item.seats_total || item.capacity || '-'}</Text>
-        <Text style={{ marginTop: 8, fontWeight: '600' }}>Postulaciones:</Text>
-        <ApplicationsList carpool={item} onRespond={onRespond} />
+      <View style={styles.myRouteCard}>
+        <View style={styles.myRouteHeader}>
+          <Text style={styles.myRouteTitle}>🚗 Mi Ruta</Text>
+          <Text style={styles.myRouteTime}>🕐 {item.hora_salida || item.departure_time || item.time || 'Sin hora'}</Text>
+        </View>
+        
+        <View style={styles.routeBody}>
+          <View style={styles.routeLocation}>
+            <Text style={styles.routeIcon}>📍</Text>
+            <View style={styles.routeLocationInfo}>
+              <Text style={styles.routeLocationLabel}>Origen</Text>
+              <Text style={styles.routeLocationText} numberOfLines={2}>{from}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.routeDivider}>
+            <Text style={styles.routeArrow}>↓</Text>
+          </View>
+          
+          <View style={styles.routeLocation}>
+            <Text style={styles.routeIcon}>🎯</Text>
+            <View style={styles.routeLocationInfo}>
+              <Text style={styles.routeLocationLabel}>Destino</Text>
+              <Text style={styles.routeLocationText} numberOfLines={2}>{to}</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.capacityInfo}>
+          <Text style={styles.capacityText}>👥 Capacidad total: {item.capacidad || item.seats_total || item.capacity || '-'}</Text>
+        </View>
+        
+        <View style={styles.applicationsSection}>
+          <Text style={styles.applicationsTitle}>📋 Postulaciones</Text>
+          <ApplicationsList carpool={item} onRespond={onRespond} />
+        </View>
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Carpooling</Text>
-      <View style={styles.tabRow}>
-        {TABS.map(t => (
-          <TouchableOpacity key={t} onPress={() => { setTab(t); if (t === 'Mis Rutas') loadMyRoutes(); if (t === 'Mis Postulaciones') loadMyApplications(); if (t === 'Explorar') loadExplore(); }} style={[styles.tabBtn, tab === t && styles.tabActive]}>
-            <Text style={tab === t ? styles.tabTextActive : styles.tabText}>{t}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>🚗 Carpooling</Text>
+      </View>
+      
+      <View style={styles.tabsContainer}>
+        {TABS.map(t => {
+          const icons = { 'Crear': '➕', 'Explorar': '🔍', 'Mis Rutas': '🚗', 'Mis Postulaciones': '📝' };
+          return (
+            <TouchableOpacity 
+              key={t} 
+              onPress={() => { 
+                setTab(t); 
+                if (t === 'Mis Rutas') loadMyRoutes(); 
+                if (t === 'Mis Postulaciones') loadMyApplications(); 
+                if (t === 'Explorar') loadExplore(); 
+              }} 
+              style={[styles.tabBtn, tab === t && styles.tabActive]}
+            >
+              <Text style={styles.tabIcon}>{icons[t]}</Text>
+              <Text style={tab === t ? styles.tabTextActive : styles.tabText}>{t}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      <View style={{ flex: 1, padding: 12 }}>
-        {loading ? <ActivityIndicator /> : null}
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
 
         {tab === 'Crear' && (
-          <View>
-            <PlaceAutocomplete placeholder="Buscar origen (escribe dirección)" onSelect={(p) => { setOrigin(p.name); setOriginCoords({ latitude: p.latitude, longitude: p.longitude }); }} />
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center', marginBottom: 8 }]} onPress={() => { setMapPickerCallback('origin'); setMapPickerVisible(true); }}>
-              <Text>{origin ? `Origen: ${origin}` : '... o seleccionar origen en el mapa'}</Text>
-            </TouchableOpacity>
+          <ScrollView style={styles.createForm} contentContainerStyle={styles.createFormContent}>
+            <View style={styles.formSection}>
+              <Text style={styles.formLabel}>📍 Punto de Partida</Text>
+              <PlaceAutocomplete 
+                placeholder="Buscar dirección de origen" 
+                onSelect={(p) => { 
+                  setOrigin(p.name); 
+                  setOriginCoords({ latitude: p.latitude, longitude: p.longitude }); 
+                }} 
+              />
+              <TouchableOpacity 
+                style={styles.mapButton} 
+                onPress={() => { setMapPickerCallback('origin'); setMapPickerVisible(true); }}
+              >
+                <Text style={styles.mapButtonIcon}>🗺️</Text>
+                <Text style={styles.mapButtonText}>
+                  {origin ? `Origen: ${origin}` : 'O seleccionar en el mapa'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-            <PlaceAutocomplete placeholder="Buscar destino (escribe dirección)" onSelect={(p) => { setDestination(p.name); setDestinationCoords({ latitude: p.latitude, longitude: p.longitude }); }} />
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center', marginBottom: 8 }]} onPress={() => { setMapPickerCallback('destination'); setMapPickerVisible(true); }}>
-              <Text>{destination ? `Destino: ${destination}` : '... o seleccionar destino en el mapa'}</Text>
-            </TouchableOpacity>
+            <View style={styles.formSection}>
+              <Text style={styles.formLabel}>🎯 Destino</Text>
+              <PlaceAutocomplete 
+                placeholder="Buscar dirección de destino" 
+                onSelect={(p) => { 
+                  setDestination(p.name); 
+                  setDestinationCoords({ latitude: p.latitude, longitude: p.longitude }); 
+                }} 
+              />
+              <TouchableOpacity 
+                style={styles.mapButton} 
+                onPress={() => { setMapPickerCallback('destination'); setMapPickerVisible(true); }}
+              >
+                <Text style={styles.mapButtonIcon}>🗺️</Text>
+                <Text style={styles.mapButtonText}>
+                  {destination ? `Destino: ${destination}` : 'O seleccionar en el mapa'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-            <TextInput placeholder="Hora de salida" value={departureTime} onChangeText={setDepartureTime} style={styles.input} />
-            <TextInput placeholder="Capacidad (número)" value={seatsTotal} onChangeText={setSeatsTotal} style={styles.input} keyboardType="numeric" />
-            <Button title="Crear ruta" onPress={onCreate} />
-          </View>
+            <View style={styles.formSection}>
+              <Text style={styles.formLabel}>🕐 Hora de Salida</Text>
+              <TextInput 
+                placeholder="Ej: 08:00 AM" 
+                value={departureTime} 
+                onChangeText={setDepartureTime} 
+                style={styles.input}
+                placeholderTextColor={theme.colors.textLight}
+              />
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={styles.formLabel}>👥 Capacidad (asientos disponibles)</Text>
+              <TextInput 
+                placeholder="Número de asientos" 
+                value={seatsTotal} 
+                onChangeText={setSeatsTotal} 
+                style={styles.input} 
+                keyboardType="numeric"
+                placeholderTextColor={theme.colors.textLight}
+              />
+            </View>
+
+            <Button 
+              variant="primary" 
+              onPress={onCreate}
+              style={styles.createButton}
+            >
+              ✓ Crear Ruta
+            </Button>
+          </ScrollView>
         )}
 
         {tab === 'Explorar' && (
-          <FlatList data={exploreRoutes} keyExtractor={r => String(r.id || r._id || Math.random())} renderItem={renderRouteItem} ListEmptyComponent={<Text>No hay rutas</Text>} />
+          <FlatList 
+            data={exploreRoutes} 
+            keyExtractor={r => String(r.id || r._id || Math.random())} 
+            renderItem={renderRouteItem} 
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>🔍</Text>
+                <Text style={styles.emptyText}>No hay rutas disponibles</Text>
+                <Text style={styles.emptySubtext}>Sé el primero en crear una ruta</Text>
+              </View>
+            } 
+          />
         )}
 
         {tab === 'Mis Rutas' && (
-          <FlatList data={myRoutes} keyExtractor={r => String(r.id || r._id || Math.random())} renderItem={renderMyRouteItem} ListEmptyComponent={<Text>No tienes rutas creadas</Text>} />
+          <FlatList 
+            data={myRoutes} 
+            keyExtractor={r => String(r.id || r._id || Math.random())} 
+            renderItem={renderMyRouteItem}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>🚗</Text>
+                <Text style={styles.emptyText}>No tienes rutas creadas</Text>
+                <Text style={styles.emptySubtext}>Crea tu primera ruta en la pestaña "Crear"</Text>
+              </View>
+            } 
+          />
         )}
 
         {tab === 'Mis Postulaciones' && (
-          <FlatList data={myApplications} keyExtractor={a => String(a.id || a.application_id || Math.random())} renderItem={({item}) => (
-            <View style={styles.route}>
-              <Text style={{ fontWeight: '700' }}>{formatPlace((item.carpool && (item.carpool.origen || item.carpool.origin)) || item.origen || item.origin)}</Text>
-              <Text>Estado: {item.estado || item.status || item.state || 'pendiente'}</Text>
-              <View style={{ flexDirection: 'row', marginTop: 8 }}>
-                <Button title="Cancelar" onPress={() => onCancelApplication(item)} />
+          <FlatList 
+            data={myApplications} 
+            keyExtractor={a => String(a.id || a.application_id || Math.random())} 
+            renderItem={({item}) => {
+              const statusColors = {
+                'pendiente': theme.colors.warning,
+                'aceptada': theme.colors.secondary,
+                'rechazada': theme.colors.error,
+                'pending': theme.colors.warning,
+                'accepted': theme.colors.secondary,
+                'rejected': theme.colors.error,
+              };
+              const status = item.estado || item.status || item.state || 'pendiente';
+              const statusColor = statusColors[status.toLowerCase()] || theme.colors.textLight;
+              
+              return (
+                <View style={styles.applicationCard}>
+                  <View style={styles.applicationHeader}>
+                    <Text style={styles.applicationTitle}>📍 Postulación</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                      <Text style={styles.statusBadgeText}>{status}</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.applicationRoute}>
+                    {formatPlace((item.carpool && (item.carpool.origen || item.carpool.origin)) || item.origen || item.origin)}
+                  </Text>
+                  
+                  {status.toLowerCase() === 'pendiente' || status.toLowerCase() === 'pending' ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onPress={() => onCancelApplication(item)}
+                      style={{ marginTop: 12 }}
+                    >
+                      ✕ Cancelar Postulación
+                    </Button>
+                  ) : null}
+                </View>
+              );
+            }}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>📝</Text>
+                <Text style={styles.emptyText}>No tienes postulaciones</Text>
+                <Text style={styles.emptySubtext}>Explora rutas y postúlate a una</Text>
               </View>
-            </View>
-          )} ListEmptyComponent={<Text>No tienes postulaciones</Text>} />
+            } 
+          />
         )}
       </View>
+      )}
       <MapPicker visible={mapPickerVisible} initialRegion={null} onClose={() => setMapPickerVisible(false)} onConfirm={(res) => {
         // res: { origin, destination, routeGeo, summary }
         if (mapPickerCallback === 'origin') {
@@ -309,34 +897,53 @@ function ApplicationsList({ carpool, onRespond }) {
     } finally { setLoading(false); }
   };
 
-  if (loading) return <Text>Cargando postulaciones...</Text>;
-  if (!apps || apps.length === 0) return <Text>No hay postulaciones</Text>;
+  if (loading) return (
+    <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+      <ActivityIndicator size="small" color={theme.colors.primary} />
+      <Text style={{ color: theme.colors.textLight, marginTop: 8, fontSize: 12 }}>Cargando postulaciones...</Text>
+    </View>
+  );
+  
+  if (!apps || apps.length === 0) return (
+    <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+      <Text style={{ color: theme.colors.textLight, fontSize: 14 }}>📭 No hay postulaciones aún</Text>
+    </View>
+  );
 
   return (
-    <View>
-      {apps.map(a => (
-        <View key={a.id || a.application_id || Math.random()} style={{ paddingVertical: 6, borderTopWidth: 1, borderColor: '#eee' }}>
-          <Text style={{ fontWeight: '600' }}>{(a.usuario && (a.usuario.nombre || a.usuario)) || a.user || a.email || 'Usuario'}</Text>
-          <Text>Asientos solicitados: {a.seats || a.solicitados || 1}</Text>
-          <View style={{ flexDirection: 'row', marginTop: 8 }}>
-            <Button title="Aceptar" onPress={() => onRespond(a, 'aceptar')} />
-            <View style={{ width: 8 }} />
-            <Button title="Rechazar" onPress={() => onRespond(a, 'rechazar')} />
+    <View style={{ marginTop: 8 }}>
+      {apps.map(a => {
+        const userName = (a.usuario && (a.usuario.nombre || a.usuario)) || a.user || a.email || 'Usuario';
+        return (
+          <View key={a.id || a.application_id || Math.random()} style={styles.applicationItem}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Avatar name={userName} size={36} />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.applicantName}>{userName}</Text>
+                <Text style={styles.applicantSeats}>🪑 {a.seats || a.solicitados || 1} asiento(s)</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button 
+                variant="primary" 
+                size="sm"
+                onPress={() => onRespond(a, 'aceptar')}
+                style={{ flex: 1 }}
+              >
+                ✓ Aceptar
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onPress={() => onRespond(a, 'rechazar')}
+                style={{ flex: 1 }}
+              >
+                ✕ Rechazar
+              </Button>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#eee', padding: 8, marginBottom: 8, borderRadius: 6 },
-  tabRow: { flexDirection: 'row', marginBottom: 12 },
-  tabBtn: { flex: 1, padding: 8, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderColor: '#0a84ff' },
-  tabText: { color: '#444' },
-  tabTextActive: { color: '#0a84ff', fontWeight: '700' },
-  route: { paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
-});

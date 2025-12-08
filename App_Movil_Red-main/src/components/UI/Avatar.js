@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
-import theme from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Avatar circular con borde y fallback a iniciales
@@ -16,6 +16,7 @@ const Avatar = ({
   online = false,
   style,
 }) => {
+  const { theme } = useTheme();
   const getSize = () => {
     switch (size) {
       case 'sm':
@@ -55,11 +56,14 @@ const Avatar = ({
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[{ position: 'relative' }, style]}>
       <View
         style={[
-          styles.avatar,
           {
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 2,
+            borderColor: theme.colors.surface,
             width: avatarSize,
             height: avatarSize,
             borderRadius: avatarSize / 2,
@@ -70,21 +74,20 @@ const Avatar = ({
         {source ? (
           <Image
             source={{ uri: source }}
-            style={[
-              styles.image,
-              {
-                width: avatarSize,
-                height: avatarSize,
-                borderRadius: avatarSize / 2,
-              },
-            ]}
+            style={{
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: avatarSize / 2,
+              resizeMode: 'cover',
+            }}
           />
         ) : (
           <Text
-            style={[
-              styles.initials,
-              { fontSize: avatarSize / 2.5 },
-            ]}
+            style={{
+              color: '#FFFFFF',
+              fontWeight: theme.fontWeights.bold,
+              fontSize: avatarSize / 2.5,
+            }}
           >
             {getInitials()}
           </Text>
@@ -92,45 +95,21 @@ const Avatar = ({
       </View>
       {online && (
         <View
-          style={[
-            styles.onlineIndicator,
-            {
-              width: avatarSize / 4,
-              height: avatarSize / 4,
-              borderRadius: avatarSize / 8,
-              right: avatarSize / 20,
-              bottom: avatarSize / 20,
-            },
-          ]}
+          style={{
+            position: 'absolute',
+            backgroundColor: theme.colors.success,
+            borderWidth: 2,
+            borderColor: theme.colors.surface,
+            width: avatarSize / 4,
+            height: avatarSize / 4,
+            borderRadius: avatarSize / 8,
+            right: avatarSize / 20,
+            bottom: avatarSize / 20,
+          }}
         />
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-  },
-  avatar: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.surface,
-  },
-  image: {
-    resizeMode: 'cover',
-  },
-  initials: {
-    color: '#FFFFFF',
-    fontWeight: theme.fontWeights.bold,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    backgroundColor: theme.colors.success,
-    borderWidth: 2,
-    borderColor: theme.colors.surface,
-  },
-});
 
 export default Avatar;

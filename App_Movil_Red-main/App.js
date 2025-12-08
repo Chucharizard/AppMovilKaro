@@ -4,6 +4,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import { loadAuth, clearAuth } from './src/lib/auth';
+import { ThemeProvider } from './src/context/ThemeContext';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -27,13 +28,15 @@ export default function App() {
   if (loading) return null;
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <StatusBar />
-      {!user ? (
-        <LoginScreen onLogin={(u) => setUser(u)} />
-      ) : (
-        <DashboardScreen user={user} onLogout={async () => { await clearAuth(); setUser(null); }} />
-      )}
-    </SafeAreaView>
+    <ThemeProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+        <StatusBar />
+        {!user ? (
+          <LoginScreen onLogin={(u) => setUser(u)} />
+        ) : (
+          <DashboardScreen user={user} onLogout={async () => { await clearAuth(); setUser(null); }} />
+        )}
+      </SafeAreaView>
+    </ThemeProvider>
   );
 }

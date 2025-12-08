@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, ScrollView, RefreshControl } from 'react-native';
 import api from '../lib/api';
+import { Button, Card, Avatar } from '../components/UI';
+import { useTheme } from '../context/ThemeContext';
 
 const TABS = ['Amigos', 'Recibidas', 'Enviadas'];
 
@@ -30,11 +32,285 @@ function getIdFromRel(rel, preferOtherUser = false, myUserId = null) {
 }
 
 export default function FriendsScreen() {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: theme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      ...theme.shadows.sm,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    tabsContainer: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: theme.spacing.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottomWidth: 3,
+      borderBottomColor: 'transparent',
+      flexDirection: 'row',
+    },
+    tabActive: {
+      borderBottomColor: theme.colors.primary,
+    },
+    tabText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.colors.textLight,
+    },
+    tabTextActive: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.colors.primary,
+    },
+    badge: {
+      marginLeft: 6,
+      backgroundColor: theme.colors.accent,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: 'center',
+    },
+    badgeSent: {
+      marginLeft: 6,
+      backgroundColor: theme.colors.warning,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: 'center',
+    },
+    badgeFriends: {
+      marginLeft: 6,
+      backgroundColor: theme.colors.secondary,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: 'center',
+    },
+    badgeText: {
+      color: '#FFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContainer: {
+      padding: theme.spacing.md,
+    },
+    friendCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.card,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.sm,
+      ...theme.shadows.sm,
+    },
+    avatar: {
+      marginRight: theme.spacing.md,
+    },
+    friendInfo: {
+      flex: 1,
+    },
+    friendName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 2,
+    },
+    friendEmail: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    acceptButton: {
+      backgroundColor: theme.colors.secondary,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...theme.shadows.sm,
+    },
+    acceptButtonText: {
+      color: '#FFF',
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    rejectButton: {
+      backgroundColor: theme.colors.accent,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...theme.shadows.sm,
+    },
+    rejectButtonText: {
+      color: '#FFF',
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    removeButton: {
+      backgroundColor: theme.colors.error,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...theme.shadows.sm,
+    },
+    removeButtonText: {
+      fontSize: 18,
+    },
+    emptyContainer: {
+      paddingVertical: 60,
+      alignItems: 'center',
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: theme.spacing.md,
+    },
+    emptyText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: theme.colors.textLight,
+      textAlign: 'center',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      width: '90%',
+      maxHeight: '80%',
+      ...theme.shadows.lg,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    closeButton: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.textLight,
+      padding: 4,
+    },
+    searchInput: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      margin: theme.spacing.lg,
+      fontSize: 15,
+      color: theme.colors.text,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    suggestionsContainer: {
+      maxHeight: 300,
+      paddingHorizontal: theme.spacing.lg,
+    },
+    suggestionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.background,
+    },
+    suggestionItemSelected: {
+      backgroundColor: theme.colors.primaryLight,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+    },
+    suggestionInfo: {
+      flex: 1,
+      marginLeft: theme.spacing.md,
+    },
+    suggestionName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 2,
+    },
+    suggestionEmail: {
+      fontSize: 13,
+      color: theme.colors.textLight,
+    },
+    checkmark: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: theme.colors.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkmarkText: {
+      color: '#FFF',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    modalFooter: {
+      flexDirection: 'row',
+      padding: theme.spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+  }), [theme]);
+  
   const [tab, setTab] = useState('Amigos');
   const [friends, setFriends] = useState([]);
   const [recibidas, setRecibidas] = useState([]);
   const [enviadas, setEnviadas] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -78,6 +354,12 @@ export default function FriendsScreen() {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+  };
 
   const onAccept = async (item) => {
     const id = getIdFromRel(item) || item.id || item.id_solicitud || item.id_request;
@@ -229,25 +511,38 @@ export default function FriendsScreen() {
   const renderItem = ({ item }) => {
     const name = getDisplayNameFromRel(item);
     const secondary = item.email || item.username || (item.raw && (item.raw.email || item.raw.correo || item.raw.username)) || '';
+    
     return (
-      <View style={styles.request}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '600' }}>{name}</Text>
-          {secondary ? <Text style={{ color: '#666', fontSize: 12 }}>{secondary}</Text> : null}
+      <View style={styles.friendCard}>
+        <Avatar 
+          name={name}
+          size={56}
+          style={styles.avatar}
+        />
+        <View style={styles.friendInfo}>
+          <Text style={styles.friendName}>{name}</Text>
+          {secondary ? <Text style={styles.friendEmail}>{secondary}</Text> : null}
         </View>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={styles.actionButtons}>
           {tab === 'Recibidas' && (
             <>
-              <Button title="Aceptar" onPress={() => onAccept(item)} />
-              <View style={{ width: 8 }} />
-              <Button title="Rechazar" onPress={() => onReject(item)} />
+              <TouchableOpacity style={styles.acceptButton} onPress={() => onAccept(item)}>
+                <Text style={styles.acceptButtonText}>✓</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.rejectButton} onPress={() => onReject(item)}>
+                <Text style={styles.rejectButtonText}>✕</Text>
+              </TouchableOpacity>
             </>
           )}
           {tab === 'Enviadas' && (
-            <Button title="Cancelar" onPress={() => onRemove(item)} />
+            <Button variant="outline" size="sm" onPress={() => onRemove(item)}>
+              Cancelar
+            </Button>
           )}
           {tab === 'Amigos' && (
-            <Button title="Eliminar" onPress={() => onRemove(item)} />
+            <TouchableOpacity style={styles.removeButton} onPress={() => onRemove(item)}>
+              <Text style={styles.removeButtonText}>🗑️</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -258,50 +553,146 @@ export default function FriendsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Amigos</Text>
-      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-        {TABS.map(t => (
-          <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t ? styles.tabActive : null]}>
-            <Text style={tab === t ? styles.tabTextActive : styles.tabText}>{t}</Text>
-          </TouchableOpacity>
-        ))}
-        <View style={{ flex: 1 }} />
-        <Button title="Buscar / Agregar" onPress={() => setShowAddModal(true)} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>👥 Amigos</Text>
+        <Button variant="primary" size="sm" onPress={() => setShowAddModal(true)}>
+          + Agregar
+        </Button>
       </View>
 
-      {loading ? <ActivityIndicator /> : (
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        {TABS.map(t => (
+          <TouchableOpacity 
+            key={t} 
+            onPress={() => setTab(t)} 
+            style={[styles.tab, tab === t && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
+            {/* Badge con contador */}
+            {t === 'Recibidas' && recibidas.length > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{recibidas.length}</Text>
+              </View>
+            )}
+            {t === 'Enviadas' && enviadas.length > 0 && (
+              <View style={styles.badgeSent}>
+                <Text style={styles.badgeText}>{enviadas.length}</Text>
+              </View>
+            )}
+            {t === 'Amigos' && friends.length > 0 && (
+              <View style={styles.badgeFriends}>
+                <Text style={styles.badgeText}>{friends.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
         <FlatList
           data={dataForTab}
           keyExtractor={(i, idx) => String(i.id || i.id_publicacion || i.id_solicitud || i.id_relacion || idx)}
           renderItem={renderItem}
-          ListEmptyComponent={<View style={{ padding: 20, alignItems: 'center' }}><Text style={{ color: '#666' }}>{tab === 'Amigos' ? 'No tienes amigos aún.' : (tab === 'Recibidas' ? 'No hay solicitudes recibidas.' : 'No has enviado solicitudes.')}</Text></View>}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>
+                {tab === 'Amigos' ? '👥' : tab === 'Recibidas' ? '📬' : '📤'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {tab === 'Amigos' ? 'No tienes amigos aún' : 
+                 tab === 'Recibidas' ? 'No hay solicitudes recibidas' : 
+                 'No has enviado solicitudes'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {tab === 'Amigos' ? 'Agrega amigos para empezar a conectar' : 
+                 tab === 'Recibidas' ? 'Las solicitudes aparecerán aquí' : 
+                 'Busca usuarios y envía solicitudes'}
+              </Text>
+            </View>
+          }
         />
       )}
 
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={{ fontWeight: '700', marginBottom: 8 }}>Enviar solicitud</Text>
-            <TextInput placeholder="Correo o username" value={query} onChangeText={setQuery} style={styles.input} />
-            {searching ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-            {suggestions && suggestions.length > 0 && (
-              <View style={{ maxHeight: 200, marginTop: 8 }}>
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(i, idx) => String(i.id || i.email || i.username || idx)}
-                  renderItem={({item}) => (
-                    <TouchableOpacity onPress={() => { setQuery(item.displayName); setSuggestions([]); setSelectedSuggestion(item); }} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
-                      <Text style={{ fontWeight: '600' }}>{item.displayName}</Text>
-                      {item.email ? <Text style={{ color: '#666', fontSize: 12 }}>{item.email}</Text> : null}
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
+      {/* Modal para agregar amigos */}
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Buscar Amigos</Text>
+              <TouchableOpacity onPress={() => { setShowAddModal(false); setQuery(''); setSuggestions([]); setSelectedSuggestion(null); }}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              placeholder="Buscar por nombre, correo o username..."
+              placeholderTextColor={theme.colors.textLight}
+              value={query}
+              onChangeText={setQuery}
+              style={styles.searchInput}
+              autoFocus
+            />
+
+            {searching && (
+              <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginTop: 12 }} />
             )}
-            <View style={{ flexDirection: 'row', marginTop: 12 }}>
-              <Button title="Cancelar" onPress={() => { setShowAddModal(false); setQuery(''); setSuggestions([]); }} />
-              <View style={{ width: 12 }} />
-              <Button title="Enviar" onPress={onSend} />
+
+            {/* Resultados de búsqueda */}
+            {suggestions && suggestions.length > 0 && (
+              <ScrollView style={styles.suggestionsContainer}>
+                {suggestions.map((item, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => { 
+                      setSelectedSuggestion(item); 
+                      setQuery(item.displayName); 
+                    }}
+                    style={[
+                      styles.suggestionItem,
+                      selectedSuggestion?.id === item.id && styles.suggestionItemSelected
+                    ]}
+                  >
+                    <Avatar name={item.displayName} size={40} />
+                    <View style={styles.suggestionInfo}>
+                      <Text style={styles.suggestionName}>{item.displayName}</Text>
+                      {item.email && <Text style={styles.suggestionEmail}>{item.email}</Text>}
+                    </View>
+                    {selectedSuggestion?.id === item.id && (
+                      <View style={styles.checkmark}>
+                        <Text style={styles.checkmarkText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* Botones del modal */}
+            <View style={styles.modalFooter}>
+              <Button
+                variant="outline"
+                onPress={() => { setShowAddModal(false); setQuery(''); setSuggestions([]); setSelectedSuggestion(null); }}
+                style={{ flex: 1, marginRight: 8 }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onPress={onSend}
+                disabled={!query.trim() && !selectedSuggestion}
+                style={{ flex: 1, marginLeft: 8 }}
+              >
+                Enviar Solicitud
+              </Button>
             </View>
           </View>
         </View>
@@ -309,16 +700,3 @@ export default function FriendsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12 },
-  title: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  request: { paddingVertical: 12, borderBottomWidth: 1, borderColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  tab: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, marginRight: 8, backgroundColor: '#f2f2f2' },
-  tabActive: { backgroundColor: '#007bff' },
-  tabText: { color: '#333' },
-  tabTextActive: { color: '#fff' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalCard: { width: '90%', backgroundColor: '#fff', padding: 16, borderRadius: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 8, borderRadius: 6 }
-});

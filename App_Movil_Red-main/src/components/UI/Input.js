@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet } from 'react-native';
-import theme from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Campo de texto moderno
@@ -18,17 +18,43 @@ const Input = ({
   style,
   ...props
 }) => {
+  const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={[{ marginBottom: theme.spacing.md }, style]}>
+      {label && (
+        <Text
+          style={{
+            fontSize: theme.fonts.sm,
+            fontWeight: theme.fontWeights.semibold,
+            color: theme.colors.textPrimary,
+            marginBottom: theme.spacing.xs,
+          }}
+        >
+          {label}
+        </Text>
+      )}
       <TextInput
         style={[
-          styles.input,
-          multiline && styles.inputMultiline,
-          isFocused && styles.inputFocused,
-          error && styles.inputError,
+          {
+            height: multiline ? 100 : 48,
+            borderRadius: 10,
+            paddingHorizontal: theme.spacing.md,
+            backgroundColor: theme.colors.surface,
+            borderWidth: isFocused ? 2 : 1,
+            borderColor: error
+              ? theme.colors.error
+              : isFocused
+              ? theme.colors.primary
+              : theme.colors.surfaceDark,
+            fontSize: theme.fonts.md,
+            color: theme.colors.textPrimary,
+          },
+          multiline && {
+            paddingTop: theme.spacing.md,
+            textAlignVertical: 'top',
+          },
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -39,48 +65,19 @@ const Input = ({
         multiline={multiline}
         {...props}
       />
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Text
+          style={{
+            fontSize: theme.fonts.xs,
+            color: theme.colors.error,
+            marginTop: theme.spacing.xs,
+          }}
+        >
+          {error}
+        </Text>
+      )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: theme.spacing.md,
-  },
-  label: {
-    fontSize: theme.fonts.sm,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    height: 48,
-    borderRadius: 10,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceDark,
-    fontSize: theme.fonts.md,
-    color: theme.colors.textPrimary,
-  },
-  inputMultiline: {
-    height: 100,
-    paddingTop: theme.spacing.md,
-    textAlignVertical: 'top',
-  },
-  inputFocused: {
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  errorText: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.error,
-    marginTop: theme.spacing.xs,
-  },
-});
 
 export default Input;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import SocialScreen from './SocialScreen';
 import AcademiaScreen from './AcademiaScreen';
@@ -9,7 +9,7 @@ import NotificationsScreen from './NotificationsScreen';
 import SettingsScreen from './SettingsScreen';
 import ProfileScreen from './ProfileScreen';
 import { Badge } from '../components/UI';
-import theme from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const TABS = [
   { key: 'social', label: 'Social', icon: '📱' },
@@ -24,6 +24,69 @@ const TABS = [
 
 export default function DashboardScreen({ user, onLogout }) {
   const [active, setActive] = useState('social');
+  const { theme } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      flex: 1,
+    },
+    tabbar: {
+      height: theme.components.tabBar.height,
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.surfaceDark,
+      paddingTop: theme.spacing.md,
+      paddingBottom: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.xs,
+      ...theme.shadows.md,
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.xs,
+    },
+    tabIconContainer: {
+      position: 'relative',
+      marginBottom: theme.spacing.xs,
+    },
+    tabIcon: {
+      fontSize: 24,
+      opacity: 0.6,
+    },
+    tabIconActive: {
+      opacity: 1,
+      transform: [{ scale: 1.1 }],
+    },
+    badgeContainer: {
+      position: 'absolute',
+      top: -4,
+      right: -8,
+    },
+    tabLabel: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.regular,
+    },
+    tabLabelActive: {
+      color: theme.colors.primary,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    activeIndicator: {
+      position: 'absolute',
+      top: 0,
+      left: '25%',
+      right: '25%',
+      height: 3,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.full,
+    },
+  }), [theme]);
 
   const renderContent = () => {
     switch (active) {
@@ -83,63 +146,3 @@ export default function DashboardScreen({ user, onLogout }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    flex: 1,
-  },
-  tabbar: {
-    height: theme.components.tabBar.height,
-    flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.surfaceDark,
-    paddingBottom: theme.spacing.xs,
-    ...theme.shadows.md,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: theme.spacing.xs,
-  },
-  tabIconContainer: {
-    position: 'relative',
-    marginBottom: 2,
-  },
-  tabIcon: {
-    fontSize: 24,
-    opacity: 0.6,
-  },
-  tabIconActive: {
-    opacity: 1,
-    transform: [{ scale: 1.1 }],
-  },
-  badgeContainer: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-  },
-  tabLabel: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.regular,
-  },
-  tabLabelActive: {
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: '25%',
-    right: '25%',
-    height: 3,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.full,
-  },
-});

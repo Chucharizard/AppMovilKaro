@@ -495,7 +495,20 @@ export async function getChatMessages(chatId) {
 
 export async function sendMessage(chatId, payload) {
   // Endpoint correcto según README del backend
-  return await request('/api/v1/mensajes', { method: 'POST', body: JSON.stringify({ ...payload, conversacion_id: chatId }) });
+  return await request('/api/v1/mensajes', { method: 'POST', body: JSON.stringify({ ...payload, id_conversacion: chatId, contenido: payload.text || payload.contenido }) });
+}
+
+export async function createConversation(participantes, tipo = 'privada', nombre = null) {
+  // Crear nueva conversación (privada o grupal)
+  return await request('/api/v1/mensajes/conversaciones', { 
+    method: 'POST', 
+    body: JSON.stringify({ participantes, tipo, nombre }) 
+  });
+}
+
+export async function searchUsers(query) {
+  // Buscar usuarios por nombre, apellido o correo
+  return await request(`/api/v1/usuarios/search/query?q=${encodeURIComponent(query)}`, { method: 'GET' });
 }
 
 // Friends / Notifications / Profile
@@ -666,37 +679,20 @@ export async function removeFriendOrCancel(requestOrFriendId) {
   throw lastErr || new Error('No se pudo eliminar la relación');
 }
 
-// Search users helper: intenta varios endpoints comunes y devuelve array
-export async function searchUsers(query) {
-  if (!query) return [];
-  const q = encodeURIComponent(query);
-  const attempts = [
-    { method: 'GET', path: `/api/v1/amigos/buscar?q=${q}` }, // Endpoint correcto según README del backend
-    { method: 'GET', path: `/api/v1/usuarios/search/query?q=${q}` },
-    { method: 'GET', path: `/api/v1/usuarios?query=${q}` },
-    { method: 'GET', path: `/api/v1/usuarios/buscar?query=${q}` },
-  ];
-  let lastErr = null;
-  for (const a of attempts) {
-    try {
-      console.log('[api.searchUsers] intentando', a.path);
-      const res = await request(a.path, { method: a.method });
-      if (Array.isArray(res)) return res;
-      // Si regresa objeto con data/files
-      if (res && Array.isArray(res.data)) return res.data;
-      if (res && Array.isArray(res.usuarios)) return res.usuarios;
-      return res;
-    } catch (e) {
-      console.warn('[api.searchUsers] intento falló', a.path, e);
-      lastErr = e;
-    }
-  }
-  // Si todos fallan, propaga el último error
-  throw lastErr || new Error('No se pudo buscar usuarios');
+export async function getNotifications() {
+  return await request('/api/v1/notificaciones', { method: 'GET' });
 }
 
-export async function getNotifications() {
-  return await request('/api/v1/notifications', { method: 'GET' });
+export async function markNotificationAsRead(notificationId) {
+  return await request(`/api/v1/notificaciones/${notificationId}/leer`, { method: 'PUT' });
+}
+
+export async function markAllNotificationsAsRead() {
+  return await request('/api/v1/notificaciones/marcar-todas-leidas', { method: 'PUT' });
+}
+
+export async function getUnreadNotificationsCount() {
+  return await request('/api/v1/notificaciones/no-leidas', { method: 'GET' });
 }
 
 export async function getProfile(userId) {
@@ -1083,7 +1079,10 @@ export default {
   getMyApplications,
   respondToApplication,
   getChats,
+  getChatMessages,
   sendMessage,
+  createConversation,
+  searchUsers,
   getFriends,
   getFriendRequestsReceived,
   getFriendRequestsSent,
@@ -1102,7 +1101,9 @@ export default {
   getComments,
   addComment,
   removeReaction,
-  searchUsers,
   getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getUnreadNotificationsCount,
   getProfile,
 };

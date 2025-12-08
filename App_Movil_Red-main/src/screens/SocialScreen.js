@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, TextInput, Image, Alert, ActivityIndicator, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import api from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAuth } from '../lib/auth';
 import { Button, Card, Input, Avatar } from '../components/UI';
-import theme from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const FILTERS = ['Todas', 'Solo amigos', 'Más likes'];
 
-function PostItem({ post, onPreview }) {
+function PostItem({ post, onPreview, styles, theme }) {
   const [userReaction, setUserReaction] = React.useState(post.mi_reaccion || post.user_reaction || post.reaccion_usuario || null);
   const [count, setCount] = React.useState(post.reacciones_count || post.likes || 0);
   const [reacting, setReacting] = React.useState(false);
@@ -268,6 +268,293 @@ function PostItem({ post, onPreview }) {
 }
 
 export default function SocialScreen() {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      ...theme.shadows.sm,
+    },
+    viewModeContainer: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    viewModeButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+    },
+    viewModeButtonActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    viewModeText: {
+      fontSize: theme.fonts.md,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.medium,
+    },
+    viewModeTextActive: {
+      color: theme.colors.surface,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    refreshButton: {
+      width: 36,
+      height: 36,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: theme.colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    refreshButtonText: {
+      fontSize: 20,
+      color: theme.colors.surface,
+    },
+    filtersContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      backgroundColor: theme.colors.surface,
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.surfaceDark,
+    },
+    filterBtn: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+    },
+    filterActive: {
+      borderBottomWidth: 3,
+      borderBottomColor: theme.colors.primary,
+    },
+    filterText: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.regular,
+    },
+    filterTextActive: {
+      color: theme.colors.primary,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    createPostCard: {
+      margin: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    createPostInput: {
+      marginBottom: 0,
+    },
+    selectedFilesContainer: {
+      marginTop: theme.spacing.md,
+    },
+    selectedFileItem: {
+      marginRight: theme.spacing.sm,
+      position: 'relative',
+    },
+    selectedFileImage: {
+      width: 100,
+      height: 100,
+      borderRadius: theme.borderRadius.md,
+    },
+    deleteFileButton: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteFileButtonText: {
+      color: theme.colors.surface,
+      fontSize: 16,
+      fontWeight: theme.fontWeights.bold,
+    },
+    createPostActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    publishButton: {
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+    },
+    post: {
+      marginHorizontal: theme.spacing.md,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    postHeaderText: {
+      flex: 1,
+      marginLeft: theme.spacing.md,
+    },
+    postAuthor: {
+      fontSize: theme.fonts.md,
+      fontWeight: theme.fontWeights.semibold,
+      color: theme.colors.textPrimary,
+    },
+    postDate: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.textSecondary,
+      marginTop: 2,
+    },
+    postContent: {
+      fontSize: theme.fonts.md,
+      color: theme.colors.textPrimary,
+      lineHeight: 22,
+    },
+    mediaContainer: {
+      marginTop: theme.spacing.md,
+    },
+    mediaImage: {
+      width: 280,
+      height: 280,
+      borderRadius: theme.borderRadius.md,
+      marginRight: theme.spacing.sm,
+    },
+    reactionsContainer: {
+      marginTop: theme.spacing.md,
+    },
+    reactionsPanel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.xs,
+      marginBottom: theme.spacing.sm,
+    },
+    reactionButton: {
+      padding: theme.spacing.sm,
+      marginRight: theme.spacing.xs,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: 'transparent',
+    },
+    reactionButtonSelected: {
+      backgroundColor: `${theme.colors.primary}20`,
+    },
+    reactionEmoji: {
+      fontSize: 24,
+    },
+    actionsBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingTop: theme.spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.surfaceDark,
+    },
+    actionsLeft: {
+      flexDirection: 'row',
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.md,
+      marginRight: theme.spacing.md,
+    },
+    actionButtonText: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.medium,
+    },
+    actionCount: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.primary,
+      marginLeft: theme.spacing.xs,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    commentsSection: {
+      marginTop: theme.spacing.md,
+      paddingTop: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.surfaceDark,
+    },
+    commentItem: {
+      flexDirection: 'row',
+      marginBottom: theme.spacing.md,
+    },
+    commentContent: {
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+    },
+    commentAuthor: {
+      fontSize: theme.fonts.sm,
+      fontWeight: theme.fontWeights.semibold,
+      color: theme.colors.textPrimary,
+    },
+    commentText: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textPrimary,
+      marginTop: 2,
+    },
+    commentDate: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.textLight,
+      marginTop: 2,
+    },
+    commentInputContainer: {
+      flexDirection: 'row',
+      marginTop: theme.spacing.sm,
+      alignItems: 'center',
+    },
+    commentInput: {
+      flex: 1,
+      height: 40,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceDark,
+      borderRadius: theme.borderRadius.md,
+      paddingHorizontal: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textPrimary,
+    },
+    commentSubmitButton: {
+      marginLeft: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.md,
+    },
+    commentSubmitText: {
+      color: theme.colors.surface,
+      fontSize: theme.fonts.sm,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceDark,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      minHeight: 40,
+      backgroundColor: theme.colors.surface,
+      fontSize: theme.fonts.md,
+      color: theme.colors.textPrimary,
+    },
+    previewContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.9)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    previewImage: {
+      width: '92%',
+      height: '80%',
+      resizeMode: 'contain',
+      borderRadius: theme.borderRadius.md,
+    },
+  }), [theme]);
+  
   const [filter, setFilter] = useState('Todas');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -665,7 +952,7 @@ export default function SocialScreen() {
       <FlatList 
         data={posts} 
         keyExtractor={i => String(i.id_publicacion || i.id || i._id)} 
-        renderItem={({item}) => <PostItem post={item} onPreview={(u)=>setPreviewUri(u)} />} 
+        renderItem={({item}) => <PostItem post={item} onPreview={(u)=>setPreviewUri(u)} styles={styles} theme={theme} />} 
         contentContainerStyle={{ padding: 12 }} 
         refreshing={loading} 
         onRefresh={onRefresh}
@@ -684,288 +971,3 @@ export default function SocialScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    ...theme.shadows.sm,
-  },
-  viewModeContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  viewModeButton: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-  },
-  viewModeButtonActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  viewModeText: {
-    fontSize: theme.fonts.md,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-  },
-  viewModeTextActive: {
-    color: theme.colors.surface,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  refreshButtonText: {
-    fontSize: 20,
-    color: theme.colors.surface,
-  },
-  filtersContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: theme.colors.surface,
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceDark,
-  },
-  filterBtn: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-  },
-  filterActive: {
-    borderBottomWidth: 3,
-    borderBottomColor: theme.colors.primary,
-  },
-  filterText: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.regular,
-  },
-  filterTextActive: {
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  createPostCard: {
-    margin: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  createPostInput: {
-    marginBottom: 0,
-  },
-  selectedFilesContainer: {
-    marginTop: theme.spacing.md,
-  },
-  selectedFileItem: {
-    marginRight: theme.spacing.sm,
-    position: 'relative',
-  },
-  selectedFileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: theme.borderRadius.md,
-  },
-  deleteFileButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteFileButtonText: {
-    color: theme.colors.surface,
-    fontSize: 16,
-    fontWeight: theme.fontWeights.bold,
-  },
-  createPostActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: theme.spacing.md,
-  },
-  publishButton: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-  },
-  post: {
-    marginHorizontal: theme.spacing.md,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  postHeaderText: {
-    flex: 1,
-    marginLeft: theme.spacing.md,
-  },
-  postAuthor: {
-    fontSize: theme.fonts.md,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.textPrimary,
-  },
-  postDate: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  postContent: {
-    fontSize: theme.fonts.md,
-    color: theme.colors.textPrimary,
-    lineHeight: 22,
-  },
-  mediaContainer: {
-    marginTop: theme.spacing.md,
-  },
-  mediaImage: {
-    width: 280,
-    height: 280,
-    borderRadius: theme.borderRadius.md,
-    marginRight: theme.spacing.sm,
-  },
-  reactionsContainer: {
-    marginTop: theme.spacing.md,
-  },
-  reactionsPanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
-  },
-  reactionButton: {
-    padding: theme.spacing.sm,
-    marginRight: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: 'transparent',
-  },
-  reactionButtonSelected: {
-    backgroundColor: `${theme.colors.primary}20`,
-  },
-  reactionEmoji: {
-    fontSize: 24,
-  },
-  actionsBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.surfaceDark,
-  },
-  actionsLeft: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    marginRight: theme.spacing.md,
-  },
-  actionButtonText: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-  },
-  actionCount: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.primary,
-    marginLeft: theme.spacing.xs,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  commentsSection: {
-    marginTop: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.surfaceDark,
-  },
-  commentItem: {
-    flexDirection: 'row',
-    marginBottom: theme.spacing.md,
-  },
-  commentContent: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-  },
-  commentAuthor: {
-    fontSize: theme.fonts.sm,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.textPrimary,
-  },
-  commentText: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textPrimary,
-    marginTop: 2,
-  },
-  commentDate: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.textLight,
-    marginTop: 2,
-  },
-  commentInputContainer: {
-    flexDirection: 'row',
-    marginTop: theme.spacing.sm,
-    alignItems: 'center',
-  },
-  commentInput: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceDark,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textPrimary,
-  },
-  commentSubmitButton: {
-    marginLeft: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-  },
-  commentSubmitText: {
-    color: theme.colors.surface,
-    fontSize: theme.fonts.sm,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceDark,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    minHeight: 40,
-    backgroundColor: theme.colors.surface,
-    fontSize: theme.fonts.md,
-    color: theme.colors.textPrimary,
-  },
-  previewContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewImage: {
-    width: '92%',
-    height: '80%',
-    resizeMode: 'contain',
-    borderRadius: theme.borderRadius.md,
-  },
-});

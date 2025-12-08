@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import GradesCard from '../components/Academic/GradesCard';
 import ScheduleCard from '../components/Academic/ScheduleCard';
 import api from '../lib/api';
 import { loadAuth } from '../lib/auth';
 import { Button } from '../components/UI';
-import theme from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { mockSchedule, mockGrades } from '../mock/mockData';
 
 // Función para transformar horario del backend al formato de UI
@@ -78,6 +78,81 @@ function transformGradesData(backendGrades) {
 }
 
 export default function AcademiaScreen({ user: userProp }) {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      backgroundColor: theme.colors.surface,
+      ...theme.shadows.sm,
+    },
+    tabsContainer: {
+      flexDirection: 'row',
+    },
+    tabBtn: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 3,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: {
+      borderBottomColor: theme.colors.primary,
+    },
+    tabText: {
+      fontSize: theme.fonts.md,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.medium,
+    },
+    tabTextActive: {
+      color: theme.colors.primary,
+      fontWeight: theme.fontWeights.semibold,
+    },
+    content: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.xxl * 2,
+    },
+    loadingText: {
+      marginTop: theme.spacing.md,
+      fontSize: theme.fonts.md,
+      color: theme.colors.textSecondary,
+    },
+    errorContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: theme.spacing.xl,
+      marginTop: theme.spacing.xxl,
+    },
+    errorIcon: {
+      fontSize: 48,
+      marginBottom: theme.spacing.md,
+    },
+    errorTitle: {
+      fontSize: theme.fonts.lg,
+      fontWeight: theme.fontWeights.bold,
+      color: theme.colors.textPrimary,
+      marginBottom: theme.spacing.sm,
+    },
+    errorMessage: {
+      fontSize: theme.fonts.md,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.lg,
+      lineHeight: 22,
+    },
+    retryButton: {
+      minWidth: 150,
+    },
+  }), [theme]);
+  
   const [tab, setTab] = useState('horario');
   const [schedule, setSchedule] = useState(null);
   const [grades, setGrades] = useState(null);
@@ -248,76 +323,3 @@ export default function AcademiaScreen({ user: userProp }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    backgroundColor: theme.colors.surface,
-    ...theme.shadows.sm,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-  },
-  tabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: theme.colors.primary,
-  },
-  tabText: {
-    fontSize: theme.fonts.md,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-  },
-  tabTextActive: {
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.semibold,
-  },
-  content: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.xxl * 2,
-  },
-  loadingText: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.fonts.md,
-    color: theme.colors.textSecondary,
-  },
-  errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.xl,
-    marginTop: theme.spacing.xxl,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: theme.spacing.md,
-  },
-  errorTitle: {
-    fontSize: theme.fonts.lg,
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.sm,
-  },
-  errorMessage: {
-    fontSize: theme.fonts.md,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    lineHeight: 22,
-  },
-  retryButton: {
-    minWidth: 150,
-  },
-});

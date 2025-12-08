@@ -1,9 +1,97 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '../UI';
-import theme from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ScheduleCard({ schedule } = {}) {
+  const { theme } = useTheme();
+  
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      padding: theme.spacing.md,
+    },
+    emptyCard: {
+      alignItems: 'center',
+      paddingVertical: theme.spacing.xl,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: theme.spacing.md,
+    },
+    emptyTitle: {
+      fontSize: theme.fonts.lg,
+      fontWeight: theme.fontWeights.semibold,
+      color: theme.colors.textPrimary,
+      marginBottom: theme.spacing.xs,
+    },
+    emptyMessage: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    dayCard: {
+      marginBottom: theme.spacing.md,
+    },
+    dayHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+      borderBottomWidth: 2,
+      borderBottomColor: theme.colors.primary,
+    },
+    dayTitle: {
+      fontSize: theme.fonts.lg,
+      fontWeight: theme.fontWeights.bold,
+      color: theme.colors.textPrimary,
+    },
+    dayCount: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textSecondary,
+      fontWeight: theme.fontWeights.medium,
+    },
+    classItem: {
+      flexDirection: 'row',
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.surfaceDark,
+    },
+    timeContainer: {
+      width: 90,
+      paddingRight: theme.spacing.sm,
+    },
+    timeText: {
+      fontSize: theme.fonts.sm,
+      fontWeight: theme.fontWeights.semibold,
+      color: theme.colors.primary,
+    },
+    subjectContainer: {
+      flex: 1,
+    },
+    subjectText: {
+      fontSize: theme.fonts.md,
+      fontWeight: theme.fontWeights.medium,
+      color: theme.colors.textPrimary,
+      marginBottom: 2,
+    },
+    roomText: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.textSecondary,
+    },
+    teacherText: {
+      fontSize: theme.fonts.xs,
+      color: theme.colors.textSecondary,
+    },
+    noClassesText: {
+      fontSize: theme.fonts.sm,
+      color: theme.colors.textLight,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      paddingVertical: theme.spacing.md,
+    },
+  }), [theme]);
+  
   // schedule expected as array of { day, items: [{ time, subject }] }
   if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
     return (
@@ -50,89 +138,3 @@ export default function ScheduleCard({ schedule } = {}) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: theme.spacing.md,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: theme.spacing.md,
-  },
-  emptyTitle: {
-    fontSize: theme.fonts.lg,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
-  },
-  emptyMessage: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  dayCard: {
-    marginBottom: theme.spacing.md,
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: theme.colors.primary,
-  },
-  dayTitle: {
-    fontSize: theme.fonts.lg,
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.textPrimary,
-  },
-  dayCount: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-  },
-  classItem: {
-    flexDirection: 'row',
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceDark,
-  },
-  timeContainer: {
-    width: 90,
-    paddingRight: theme.spacing.sm,
-  },
-  timeText: {
-    fontSize: theme.fonts.sm,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.primary,
-  },
-  subjectContainer: {
-    flex: 1,
-  },
-  subjectText: {
-    fontSize: theme.fonts.md,
-    fontWeight: theme.fontWeights.medium,
-    color: theme.colors.textPrimary,
-    marginBottom: 2,
-  },
-  roomText: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.textSecondary,
-  },
-  teacherText: {
-    fontSize: theme.fonts.xs,
-    color: theme.colors.textSecondary,
-  },
-  noClassesText: {
-    fontSize: theme.fonts.sm,
-    color: theme.colors.textLight,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: theme.spacing.md,
-  },
-});

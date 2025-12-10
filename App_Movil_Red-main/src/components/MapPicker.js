@@ -184,31 +184,27 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
 
   const content = (
     <View style={{ flex: 1, position: 'relative', backgroundColor: '#f5f5f5' }}>
-      {!mapReady && !showWeb && (
+      {!mapReady && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', zIndex: 1000 }}>
           <ActivityIndicator size="large" color="#0a84ff" />
           <Text style={{ fontSize: 16, color: '#666', marginTop: 16 }}>🗺️ Cargando mapa...</Text>
-          <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{showWeb ? 'OpenStreetMap' : 'Google Maps nativo'}</Text>
+          <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>OpenStreetMap</Text>
         </View>
       )}
       <MapView
         ref={mapRef}
-        provider={showWeb ? null : PROVIDER_GOOGLE}
+        provider={null}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         initialRegion={DEFAULT_SUCRE_REGION}
         onPress={handlePress}
         onLongPress={handleLongPress}
         onMapReady={() => {
-          console.log('[MapPicker] ✅ Map ready! (provider:', showWeb ? 'default/OSM' : 'Google', ')');
+          console.log('[MapPicker] ✅ Map ready! (provider: OpenStreetMap)');
           setMapReady(true);
         }}
         onError={(e) => {
           console.error('[MapPicker] MapView error:', e);
-          if (!showWeb) {
-            console.warn('[MapPicker] Switching to default provider (OSM) due to error');
-            setShowWeb(true);
-            setMapReady(false);
-          }
+          Alert.alert('Error del mapa', 'No se pudo cargar el mapa. Verifica tu conexión a internet.');
         }}
       >
         {origin && (

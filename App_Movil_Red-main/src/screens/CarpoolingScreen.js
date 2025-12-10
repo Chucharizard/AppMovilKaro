@@ -781,7 +781,7 @@ export default function CarpoolingScreen({ user: userProp }) {
           }}>
             <View style={styles.miniMapContainer}>
               <MapView
-                provider={MapView.PROVIDER_GOOGLE}
+                provider={null}
                 style={styles.miniMap}
                 mapType="standard"
                 initialRegion={(() => {
@@ -896,7 +896,7 @@ export default function CarpoolingScreen({ user: userProp }) {
           }}>
             <View style={styles.miniMapContainer}>
               <MapView
-                provider={MapView.PROVIDER_GOOGLE}
+                provider={null}
                 style={styles.miniMap}
                 mapType="standard"
                 initialRegion={(() => {

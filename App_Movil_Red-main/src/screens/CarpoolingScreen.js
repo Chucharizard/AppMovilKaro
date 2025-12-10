@@ -977,10 +977,14 @@ export default function CarpoolingScreen({ user: userProp }) {
 
         {tab === 'Crear' && (
           <ScrollView style={styles.createForm} contentContainerStyle={styles.createFormContent}>
+            <Text style={[styles.formLabel, { marginBottom: 8 }]}>🗺️ Mapa Interactivo</Text>
+            <Text style={{ fontSize: 12, color: theme.colors.textLight, marginBottom: 8 }}>
+              1️⃣ Toca en el mapa para marcar ORIGEN • 2️⃣ Toca otra vez para DESTINO • 3️⃣ Presiona "Trazar" para ver la ruta
+            </Text>
             <View style={styles.mapContainer}>
               <MapPicker
                 inline={true}
-                initialRegion={null}
+                initialRegion={{ latitude: -19.0196, longitude: -65.2619, latitudeDelta: 0.03, longitudeDelta: 0.03 }}
                 onChange={(p) => {
                   // p: { origin } or { destination }
                   if (p.origin) {

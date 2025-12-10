@@ -111,26 +111,26 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
     }
   };
 
-  // when both origin and destination are set, automatically build route (inline UX)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (origin && destination && (!routeGeo || routeGeo.length === 0)) {
-        try {
-          const result = await buildRoute();
-          if (result.success && onConfirm) {
-            // avoid double-confirming the same pair
-            try {
-              if (!cancelled) onConfirm({ origin, destination, routeGeo: result.routeGeo || null, summary: result.summary || null });
-            } catch (ex) { console.warn('[MapPicker] auto onConfirm failed', ex); }
-          }
-        } catch (e) {
-          if (!cancelled) console.warn('[MapPicker] auto buildRoute failed', e);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [origin, destination]);
+  // Disabled auto-build - now user must manually click "Trazar ruta"
+  // This gives better control and clearer workflow: pick origin → pick destination → trace route
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   (async () => {
+  //     if (origin && destination && (!routeGeo || routeGeo.length === 0)) {
+  //       try {
+  //         const result = await buildRoute();
+  //         if (result.success && onChange) {
+  //           try {
+  //             if (!cancelled) onChange({ origin, destination, routeGeo: result.routeGeo || null, summary: result.summary || null });
+  //           } catch (ex) { console.warn('[MapPicker] auto onChange failed', ex); }
+  //         }
+  //       } catch (e) {
+  //         if (!cancelled) console.warn('[MapPicker] auto buildRoute failed', e);
+  //       }
+  //     }
+  //   })();
+  //   return () => { cancelled = true; };
+  // }, [origin, destination]);
 
   const buildRoute = async () => {
     if (!origin || !destination) {
@@ -185,45 +185,78 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
   const content = (
     <View style={{ flex: 1, position: 'relative' }}>
       <MapView
-          // Use configured provider when available; otherwise let react-native-maps pick default
-          {...(DEFAULT_MAP_PROVIDER === 'google' ? { provider: MapView.PROVIDER_GOOGLE } : {})}
-          style={{ flex: 1 }}
+          // Don't specify provider - let react-native-maps use the native map
+          style={{ flex: 1, width: '100%', height: '100%' }}
           ref={mapRef}
           initialRegion={initialRegion || region}
           onRegionChangeComplete={(r) => { setRegion(r); }}
-          onLongPress={handleLongPress}
           onPress={handlePress}
-          onMapReady={() => { console.log('[MapPicker] onMapReady', { provider: DEFAULT_MAP_PROVIDER, initialRegion: initialRegion || region }); setMapReady(true); setShowWeb(false); }}
+          onMapReady={() => { console.log('[MapPicker] onMapReady'); setMapReady(true); setShowWeb(false); }}
           onMapLoaded={() => { console.log('[MapPicker] onMapLoaded'); setMapReady(true); }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
         >
-          {/* Using Google Maps tiles only (no OSM fallback) */}
-          {origin ? <Marker coordinate={origin} pinColor="green" /> : null}
-          {destination ? <Marker coordinate={destination} pinColor="red" /> : null}
-          {routeGeo ? <Polyline coordinates={routeGeo} strokeColor="#0a84ff" strokeWidth={4} /> : null}
+          {origin ? <Marker coordinate={origin} pinColor="green" title="Origen" description="Punto de partida" /> : null}
+          {destination ? <Marker coordinate={destination} pinColor="red" title="Destino" description="Punto de llegada" /> : null}
+          {routeGeo && Array.isArray(routeGeo) && routeGeo.length > 0 ? (
+            <Polyline coordinates={routeGeo} strokeColor="#0a84ff" strokeWidth={4} />
+          ) : null}
         </MapView>
 
-          {/* If native map failed to initialize, show a web fallback */}
-          {showWeb ? <MapWebFallback visible={showWeb} onClose={() => setShowWeb(false)} initialCenter={region} onSelect={(c) => {
-            if (!origin) setOrigin(c);
-            else if (!destination) setDestination(c);
-            else { setOrigin(c); setDestination(null); setRouteGeo(null); setSummary(null); }
-          }} /> : null}
-            {/* Quick actions removed for cleaner inline UX (taps now set origin/destination directly) */}
-        {/* Removed diagnostic badges to avoid covering map */}
+        {/* Instructions overlay */}
+        <View style={styles.instructionsOverlay}>
+          <Text style={styles.instructionText}>
+            {!origin ? '📍 Toca en el mapa para seleccionar ORIGEN' :
+             !destination ? '🎯 Toca en el mapa para seleccionar DESTINO' :
+             !routeGeo ? '🛣️ Toca "Trazar ruta" para ver el camino' :
+             '✅ Ruta lista - Toca "Confirmar"'}
+          </Text>
+        </View>
 
         <View style={styles.toolbar}>
           <View style={styles.infoColumn}>
-            <Text style={styles.infoText} numberOfLines={1}>Origen: {origin ? `${(Number(origin.latitude)).toFixed ? Number(origin.latitude).toFixed(5) : String(origin.latitude)}, ${(Number(origin.longitude)).toFixed ? Number(origin.longitude).toFixed(5) : String(origin.longitude)}` : '—'}</Text>
-            <Text style={styles.infoText} numberOfLines={1}>Destino: {destination ? `${(Number(destination.latitude)).toFixed ? Number(destination.latitude).toFixed(5) : String(destination.latitude)}, ${(Number(destination.longitude)).toFixed ? Number(destination.longitude).toFixed(5) : String(destination.longitude)}` : '—'}</Text>
-            {summary ? <Text style={styles.infoText}>Dist: {typeof summary.distance === 'number' ? (summary.distance/1000).toFixed(2) : String(summary.distance)} km • Dur: {typeof summary.duration === 'number' ? (summary.duration/60).toFixed(0) : String(summary.duration)} min</Text> : null}
+            <Text style={styles.infoText} numberOfLines={1}>
+              {origin ? `✓ Origen: ${Number(origin.latitude).toFixed(4)}, ${Number(origin.longitude).toFixed(4)}` : '○ Origen: —'}
+            </Text>
+            <Text style={styles.infoText} numberOfLines={1}>
+              {destination ? `✓ Destino: ${Number(destination.latitude).toFixed(4)}, ${Number(destination.longitude).toFixed(4)}` : '○ Destino: —'}
+            </Text>
+            {summary ? (
+              <Text style={styles.infoText}>
+                📏 {(summary.distance/1000).toFixed(1)} km • ⏱️ {(summary.duration/60).toFixed(0)} min
+              </Text>
+            ) : null}
           </View>
           <View style={styles.actionsColumn}>
-            <TouchableOpacity style={styles.btn} onPress={onClose}><Text style={styles.btnText}>Cerrar</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.btn} onPress={buildRoute}><Text style={styles.btnText}>Trazar ruta</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.primaryBtn]} onPress={handleConfirm}><Text style={[styles.btnText, { color: '#fff' }]}>Confirmar</Text></TouchableOpacity>
+            {!inline && onClose ? (
+              <TouchableOpacity style={styles.btn} onPress={onClose}>
+                <Text style={styles.btnText}>Cerrar</Text>
+              </TouchableOpacity>
+            ) : null}
+            {origin && destination ? (
+              <TouchableOpacity
+                style={[styles.btn, !routeGeo ? styles.primaryBtn : {}]}
+                onPress={buildRoute}
+              >
+                <Text style={[styles.btnText, !routeGeo ? { color: '#fff' } : {}]}>
+                  {routeGeo ? '🔄 Recalcular' : '🛣️ Trazar'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => {
+                setOrigin(null);
+                setDestination(null);
+                setRouteGeo(null);
+                setSummary(null);
+              }}
+            >
+              <Text style={styles.btnText}>🔄 Reset</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        
+
       </View>
   );
 
@@ -239,47 +272,70 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
 }
 
 const styles = StyleSheet.create({
+  instructionsOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(10, 132, 255, 0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  instructionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
   toolbar: {
     position: 'absolute',
     left: 12,
     right: 12,
     bottom: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#ddd',
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   infoColumn: {
     flex: 1,
     paddingRight: 8,
   },
   infoText: {
-    fontSize: 12,
-    color: '#111',
+    fontSize: 11,
+    color: '#222',
+    marginBottom: 2,
   },
   actionsColumn: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   btn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginLeft: 8,
-    backgroundColor: '#eee',
-    borderRadius: 6,
-    minWidth: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: 6,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    minWidth: 70,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
-  btnText: { color: '#222', fontSize: 13 },
-  primaryBtn: { backgroundColor: '#0a84ff' },
+  btnText: { color: '#222', fontSize: 12, fontWeight: '600' },
+  primaryBtn: { backgroundColor: '#0a84ff', borderColor: '#0a84ff' },
 
   debugOverlay: { position: 'absolute', top: 12, right: 12, alignItems: 'flex-end' },
   debugBox: {

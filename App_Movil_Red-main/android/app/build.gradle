@@ -112,7 +112,13 @@ android {
     ndkVersion rootProject.ext.ndkVersion
 
     compileSdkVersion rootProject.ext.compileSdkVersion
+    compileSdkVersion rootProject.ext.compileSdkVersion
 
+    // Habilitar BuildConfig para soportar campos personalizados en defaultConfig.
+    // Esto es necesario para algunos plugins (expo-dev-launcher, etc.)
+    buildFeatures {
+        buildConfig true
+    }
     namespace 'com.redsocial.app'
     defaultConfig {
         applicationId 'com.redsocial.app'
@@ -152,6 +158,12 @@ android {
         }
     }
 
+    packagingOptions {
+        // Excluir archivos duplicados BuildConfig de los m&#243dulos Expo que comparten namespace
+        // Esto evita el error "Type host.exp.exponent.BuildConfig is defined multiple times"
+        pickFirst '**/host/exp/exponent/BuildConfig.class'
+    }
+
     // applicationVariants are e.g. debug, release
     applicationVariants.all { variant ->
         variant.outputs.each { output ->
@@ -189,17 +201,6 @@ android {
     }
 }
 
-// Force compatible versions for AGP 7.4.2 and React Native 0.71.14
-configurations.all {
-    resolutionStrategy {
-        force 'androidx.webkit:webkit:1.9.0'
-        // Force Kotlin stdlib versions to 1.7.22 to avoid duplicates
-        force 'org.jetbrains.kotlin:kotlin-stdlib:1.7.22'
-        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.22'
-        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.22'
-    }
-}
-
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
@@ -230,6 +231,10 @@ dependencies {
     }
 
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.0.0")
+    
+    // Google Play Services para react-native-maps
+    implementation 'com.google.android.gms:play-services-base:18.2.0'
+    implementation 'com.google.android.gms:play-services-maps:18.1.0'
 
     debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
     debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {

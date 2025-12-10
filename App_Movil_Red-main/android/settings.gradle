@@ -7,4 +7,9 @@ apply from: new File(["node", "--print", "require.resolve('@react-native-communi
 applyNativeModulesSettingsGradle(settings)
 
 include ':app'
+// Re-enable local composite build for react-native-gradle-plugin to compile the
+// plugin from the local `node_modules` sources. This is a temporary step for
+// reproducing and fixing the Kotlin metadata issue on this machine. If you
+// prefer resolving via published artifact, revert this change and ensure the
+// top-level `build.gradle` declares a matching classpath version.
 includeBuild(new File(["node", "--print", "require.resolve('react-native-gradle-plugin/package.json')"].execute(null, rootDir).text.trim()).getParentFile())

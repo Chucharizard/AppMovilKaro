@@ -3,8 +3,13 @@ import { View, TextInput, FlatList, TouchableOpacity, Text, ActivityIndicator, S
 import { ORS_API_KEY, SERPAPI_KEY, GOOGLE_MAPS_API_KEY } from '../config';
 
 // PlaceAutocomplete: tries SerpApi if SERPAPI_KEY provided, otherwise Nominatim
-export default function PlaceAutocomplete({ placeholder = 'Buscar lugar...', onSelect }) {
+export default function PlaceAutocomplete({ placeholder = 'Buscar lugar...', onSelect, value = '' }) {
   const [q, setQ] = useState('');
+
+  useEffect(() => {
+    // if parent controls value (like coordinates string), reflect it
+    if (typeof value === 'string') setQ(value);
+  }, [value]);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
 

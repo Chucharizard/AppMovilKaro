@@ -146,9 +146,21 @@ export default function ProfileScreen({ user }) {
             api.getFriends().catch(() => []),
           ]);
 
-          // Filtrar publicaciones del usuario actual
-          const userPosts = Array.isArray(posts) 
-            ? posts.filter(post => post.id_user === user.id_user || (post.usuario && post.usuario.id_user === user.id_user))
+          // Filtrar publicaciones del usuario actual (excluir eventos)
+          const isEventPost = (p) => {
+            if (!p) return false;
+            const keys = Object.keys(p).map(k => String(k).toLowerCase());
+            const eventKeys = ['evento', 'event', 'fecha_evento', 'start_date', 'event_date', 'location', 'ubicacion', 'lugar', 'evento_id', 'id_evento', 'tipo_evento', 'es_evento'];
+            for (const ek of eventKeys) if (keys.includes(ek)) return true;
+            const tipo = p.tipo || p.type || p.tipo_publicacion || p.publicacion_tipo || p.post_type;
+            if (tipo && String(tipo).toLowerCase().includes('event')) return true;
+            const contenido = (p.contenido || p.texto || p.text || p.description || '').toString().toLowerCase();
+            if (contenido && contenido.includes('evento')) return true;
+            return false;
+          };
+
+          const userPosts = Array.isArray(posts)
+            ? posts.filter(post => (post.id_user === user.id_user || (post.usuario && post.usuario.id_user === user.id_user)) && !isEventPost(post))
             : [];
 
           // Contar reacciones totales en las publicaciones del usuario

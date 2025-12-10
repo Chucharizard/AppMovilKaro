@@ -4,6 +4,7 @@ import api from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAuth } from '../lib/auth';
 import { Button, Card, Input, Avatar } from '../components/UI';
+import ExpoMapScreen from './ExpoMapScreen';
 import { useTheme } from '../context/ThemeContext';
 
 const FILTERS = ['Todas', 'Solo amigos', 'Más likes'];
@@ -568,6 +569,22 @@ export default function SocialScreen() {
     try {
       const res = await api.getPosts({ skip: 0, limit: 50 });
       let filtered = Array.isArray(res) ? res : [];
+
+      // Heurística para detectar publicaciones que son en realidad eventos
+      const isEventPost = (p) => {
+        if (!p) return false;
+        const keys = Object.keys(p).map(k => String(k).toLowerCase());
+        // Campos habituales para eventos
+        const eventKeys = ['evento', 'event', 'fecha_evento', 'start_date', 'event_date', 'location', 'ubicacion', 'lugar', 'evento_id', 'id_evento', 'tipo_evento', 'es_evento'];
+        for (const ek of eventKeys) if (keys.includes(ek)) return true;
+        // Tipo o campo 'tipo' indicando evento
+        const tipo = p.tipo || p.type || p.tipo_publicacion || p.publicacion_tipo || p.post_type;
+        if (tipo && String(tipo).toLowerCase().includes('event')) return true;
+        // Mensajes que contienen la palabra 'evento' en el contenido
+        const contenido = (p.contenido || p.texto || p.text || p.description || '').toString().toLowerCase();
+        if (contenido && contenido.includes('evento')) return true;
+        return false;
+      };
       // Filtro "Solo amigos"
       if (currentFilter === 'Solo amigos') {
         // Helper: obtener author id de una publicación (varias formas posibles)
@@ -656,6 +673,11 @@ export default function SocialScreen() {
         filtered = filtered.sort((a, b) => (b.reacciones_count || 0) - (a.reacciones_count || 0));
       }
 
+      // Excluir publicaciones que parecen eventos — los eventos van en su propio apartado
+      try {
+        filtered = filtered.filter(p => !isEventPost(p));
+      } catch (e) { console.warn('[Social] event filter failed', e); }
+
       setPosts(filtered);
     } catch (e) {
       console.warn('[Social] error fetching posts', e);
@@ -718,6 +740,7 @@ export default function SocialScreen() {
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventDate, setNewEventDate] = useState('');
+  const [showExpoMap, setShowExpoMap] = useState(false);
 
   const pickImage = async () => {
     let ImagePicker;
@@ -810,13 +833,22 @@ export default function SocialScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() => { if (viewMode === 'events') loadEvents(); else onRefresh(); }}
-          style={styles.refreshButton}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.refreshButtonText}>↻</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowExpoMap(true)}
+            style={[styles.refreshButton, { backgroundColor: '#0a84ff' }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.refreshButtonText, { color: '#fff' }]}>📍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { if (viewMode === 'events') loadEvents(); else onRefresh(); }}
+            style={styles.refreshButton}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.refreshButtonText}>↻</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {viewMode === 'feed' && (
@@ -885,6 +917,11 @@ export default function SocialScreen() {
                 {previewUri ? <Image source={{ uri: previewUri }} style={styles.previewImage} /> : null}
               </View>
             </TouchableWithoutFeedback>
+          </Modal>
+
+          {/* Modal para probar el mapa nativo de Expo (ExpoMapScreen) */}
+          <Modal visible={!!showExpoMap} animationType="slide" onRequestClose={() => setShowExpoMap(false)}>
+            <ExpoMapScreen />
           </Modal>
         </Card>
       ) : (

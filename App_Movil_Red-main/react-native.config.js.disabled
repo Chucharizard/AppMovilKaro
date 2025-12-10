@@ -1,0 +1,16 @@
+/**
+ * Prevent autolinking of react-native-maps so the native module isn't
+ * registered twice when using a development client that already includes it.
+ * This file tells the RN autolinker to skip linking react-native-maps on
+ * iOS/Android. After adding this file run a clean build.
+ */
+module.exports = {
+  dependencies: {
+    'react-native-maps': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
+  },
+};

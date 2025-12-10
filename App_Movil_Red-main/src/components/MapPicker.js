@@ -5,23 +5,42 @@ import { ORS_API_KEY, DEFAULT_MAP_PROVIDER } from '../config';
 import MapWebFallback from './MapWebFallback';
 
 // MapPicker: modal map to choose origin and destination and draw route via ORS
-export default function MapPicker({ visible, onClose, onConfirm, initialRegion }) {
+export default function MapPicker({ visible, onClose, onConfirm, initialRegion, inline = false, onChange = null }) {
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeGeo, setRouteGeo] = useState(null);
   const [summary, setSummary] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapInitTried, setMapInitTried] = useState(false);
   const [useOsm, setUseOsm] = useState(false);
   const [lastTouch, setLastTouch] = useState(null);
   const mapRef = useRef(null);
-  const [region, setRegion] = useState(initialRegion || { latitude: 0, longitude: 0, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+  // Default to Sucre, Bolivia so the map is focused on the desired city by default
+  const DEFAULT_SUCRE_REGION = initialRegion || { latitude: -19.0196, longitude: -65.2619, latitudeDelta: 0.02, longitudeDelta: 0.02 };
+  const [region, setRegion] = useState(DEFAULT_SUCRE_REGION);
   const [showWeb, setShowWeb] = useState(false);
 
   useEffect(() => {
-    if (!visible) {
-      setOrigin(null); setDestination(null); setRouteGeo(null); setSummary(null);
+    // If native map doesn't become ready within a short timeout, show web fallback.
+    let to = null;
+    if (!mapReady && !mapInitTried) {
+      to = setTimeout(() => {
+        console.warn('[MapPicker] native map not ready after timeout, opening web fallback');
+        setShowWeb(true);
+        setMapInitTried(true);
+      }, 4000);
     }
-  }, [visible]);
+    return () => { if (to) clearTimeout(to); };
+  }, [mapReady, mapInitTried]);
+
+  useEffect(() => {
+    // when modal closed or when component unmounts/reset, clear selection
+    if (!inline) {
+      if (!visible) {
+        setOrigin(null); setDestination(null); setRouteGeo(null); setSummary(null);
+      }
+    }
+ }, [visible, inline]);
 
   const handleLongPress = (e) => {
     try {
@@ -41,8 +60,13 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion }
         return;
       }
       // If origin empty, set origin; else if destination empty set destination; else replace origin
-      if (!origin) setOrigin(coord);
-      else if (!destination) setDestination(coord);
+      if (!origin) {
+        setOrigin(coord);
+        if (onChange) onChange({ origin: coord });
+      } else if (!destination) {
+        setDestination(coord);
+        if (onChange) onChange({ destination: coord });
+      }
       else {
         setOrigin(coord); setDestination(null); setRouteGeo(null); setSummary(null);
       }
@@ -72,8 +96,13 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion }
         return;
       }
       // Use the same logic as long press: origin -> destination -> replace origin
-      if (!origin) setOrigin(coord);
-      else if (!destination) setDestination(coord);
+      if (!origin) {
+        setOrigin(coord);
+        if (onChange) onChange({ origin: coord });
+      } else if (!destination) {
+        setDestination(coord);
+        if (onChange) onChange({ destination: coord });
+      }
       else {
         setOrigin(coord); setDestination(null); setRouteGeo(null); setSummary(null);
       }
@@ -81,6 +110,27 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion }
       console.warn('[MapPicker] handlePress error', err);
     }
   };
+
+  // when both origin and destination are set, automatically build route (inline UX)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (origin && destination && (!routeGeo || routeGeo.length === 0)) {
+        try {
+          const ok = await buildRoute();
+          if (ok && onConfirm) {
+            // avoid double-confirming the same pair
+            try {
+              if (!cancelled) onConfirm({ origin, destination, routeGeo: routeGeo || null, summary });
+            } catch (ex) { console.warn('[MapPicker] auto onConfirm failed', ex); }
+          }
+        } catch (e) {
+          if (!cancelled) console.warn('[MapPicker] auto buildRoute failed', e);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [origin, destination]);
 
   const buildRoute = async () => {
     if (!origin || !destination) return Alert.alert('Selecciona origen y destino');
@@ -100,33 +150,42 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion }
         const line = coordsLine.map(c => ({ latitude: c[1], longitude: c[0] }));
         setRouteGeo(line);
         setSummary(summaryObj || null);
+        return true;
       } else {
         Alert.alert('Ruta', 'No se encontró ruta entre puntos');
+        return false;
       }
     } catch (e) {
       console.warn('[MapPicker] buildRoute failed', e);
       Alert.alert('Error', 'No se pudo obtener la ruta.');
+      return false;
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!origin || !destination) return Alert.alert('Selecciona origen y destino');
-    onConfirm({ origin, destination, routeGeo, summary });
-    onClose();
+    // If routeGeo not computed yet, compute it first
+    if (!routeGeo || routeGeo.length === 0) {
+      const ok = await buildRoute();
+      if (!ok) return; // buildRoute already alerted
+    }
+    console.log('[MapPicker] handleConfirm sending', { origin, destination, routeGeo, summary });
+    if (onConfirm) onConfirm({ origin, destination, routeGeo, summary });
+    if (!inline && onClose) onClose();
   };
 
-  return (
-    <Modal visible={visible} animationType="slide">
-      <View style={{ flex: 1 }}>
-        <MapView
-          provider={MapView.PROVIDER_GOOGLE}
+  const content = (
+    <View style={{ flex: 1, position: 'relative' }}>
+      <MapView
+          // Use configured provider when available; otherwise let react-native-maps pick default
+          {...(DEFAULT_MAP_PROVIDER === 'google' ? { provider: MapView.PROVIDER_GOOGLE } : {})}
           style={{ flex: 1 }}
           ref={mapRef}
           initialRegion={initialRegion || region}
           onRegionChangeComplete={(r) => { setRegion(r); }}
           onLongPress={handleLongPress}
           onPress={handlePress}
-          onMapReady={() => { console.log('[MapPicker] onMapReady', { provider: MapView.PROVIDER_GOOGLE, initialRegion: initialRegion || region }); setMapReady(true); }}
+          onMapReady={() => { console.log('[MapPicker] onMapReady', { provider: DEFAULT_MAP_PROVIDER, initialRegion: initialRegion || region }); setMapReady(true); setShowWeb(false); }}
           onMapLoaded={() => { console.log('[MapPicker] onMapLoaded'); setMapReady(true); }}
         >
           {/* Using Google Maps tiles only (no OSM fallback) */}
@@ -135,78 +194,98 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion }
           {routeGeo ? <Polyline coordinates={routeGeo} strokeColor="#0a84ff" strokeWidth={4} /> : null}
         </MapView>
 
-        {/* Diagnostic overlay: shows last touch and current region center */}
-        <View style={styles.debugOverlay} pointerEvents="box-none">
-          <View style={styles.debugBox}>
-            <Text style={{ fontSize: 12 }}>Último toque:</Text>
-            <Text style={{ fontSize: 12 }}>{lastTouch ? `${Number(lastTouch.latitude).toFixed(6)}, ${Number(lastTouch.longitude).toFixed(6)}` : '—'}</Text>
-            <Text style={{ marginTop: 6, fontSize: 12 }}>Centro mapa:</Text>
-            <Text style={{ fontSize: 12 }}>{region ? `${Number(region.latitude).toFixed(6)}, ${Number(region.longitude).toFixed(6)}` : '—'}</Text>
-          </View>
-
-          <TouchableOpacity style={styles.fab} onPress={async () => {
-            try {
-              // Use region center as fallback placement
-              const center = region || initialRegion || { latitude: 0, longitude: 0 };
-              if (Math.abs(center.latitude) < 0.0001 && Math.abs(center.longitude) < 0.0001) {
-                console.warn('[MapPicker] FAB center is near-zero, ignoring');
-                Alert.alert('Centro inválido', 'El centro del mapa está en (0,0). Espera que el mapa se inicialice o toca directamente para seleccionar un punto.');
-                return;
-              }
-              console.log('[MapPicker] FAB marcar centro', center);
-              const coord = { latitude: Number(center.latitude), longitude: Number(center.longitude) };
-              if (!origin) setOrigin(coord);
-              else if (!destination) setDestination(coord);
-              else { setOrigin(coord); setDestination(null); setRouteGeo(null); setSummary(null); }
-            } catch (e) { console.warn('[MapPicker] FAB error', e); }
-          }}>
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Marcar centro</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.fab, { marginTop: 8, backgroundColor: '#444' }]} onPress={() => setShowWeb(true)}>
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Abrir mapa Web</Text>
-          </TouchableOpacity>
-        </View>
-        {!mapReady ? (
-          <View style={{ position: 'absolute', top: 12, left: 12, padding: 6, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 6 }}>
-            <Text style={{ color: '#b00' }}>Mapa no listo (diagnóstico)</Text>
-            <Text style={{ fontSize: 11, color: '#333' }}>Si esto aparece, revisa API Key / restricciones / billing</Text>
-          </View>
-        ) : (
-          <View style={{ position: 'absolute', top: 12, left: 12, padding: 6, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 6 }}>
-            <Text style={{ color: '#080' }}>Mapa listo</Text>
-          </View>
-        )}
+          {/* If native map failed to initialize, show a web fallback */}
+          {showWeb ? <MapWebFallback visible={showWeb} onClose={() => setShowWeb(false)} initialCenter={region} onSelect={(c) => {
+            if (!origin) setOrigin(c);
+            else if (!destination) setDestination(c);
+            else { setOrigin(c); setDestination(null); setRouteGeo(null); setSummary(null); }
+          }} /> : null}
+            {/* Quick actions removed for cleaner inline UX (taps now set origin/destination directly) */}
+        {/* Removed diagnostic badges to avoid covering map */}
 
         <View style={styles.toolbar}>
-          <View style={{ flex: 1 }}>
-            <Text>Origen: {origin ? `${(Number(origin.latitude)).toFixed ? Number(origin.latitude).toFixed(5) : String(origin.latitude)}, ${(Number(origin.longitude)).toFixed ? Number(origin.longitude).toFixed(5) : String(origin.longitude)}` : '—'}</Text>
-            <Text>Destino: {destination ? `${(Number(destination.latitude)).toFixed ? Number(destination.latitude).toFixed(5) : String(destination.latitude)}, ${(Number(destination.longitude)).toFixed ? Number(destination.longitude).toFixed(5) : String(destination.longitude)}` : '—'}</Text>
-            {summary ? <Text>Dist: {typeof summary.distance === 'number' ? (summary.distance/1000).toFixed(2) : String(summary.distance)} km • Dur: {typeof summary.duration === 'number' ? (summary.duration/60).toFixed(0) : String(summary.duration)} min</Text> : null}
+          <View style={styles.infoColumn}>
+            <Text style={styles.infoText} numberOfLines={1}>Origen: {origin ? `${(Number(origin.latitude)).toFixed ? Number(origin.latitude).toFixed(5) : String(origin.latitude)}, ${(Number(origin.longitude)).toFixed ? Number(origin.longitude).toFixed(5) : String(origin.longitude)}` : '—'}</Text>
+            <Text style={styles.infoText} numberOfLines={1}>Destino: {destination ? `${(Number(destination.latitude)).toFixed ? Number(destination.latitude).toFixed(5) : String(destination.latitude)}, ${(Number(destination.longitude)).toFixed ? Number(destination.longitude).toFixed(5) : String(destination.longitude)}` : '—'}</Text>
+            {summary ? <Text style={styles.infoText}>Dist: {typeof summary.distance === 'number' ? (summary.distance/1000).toFixed(2) : String(summary.distance)} km • Dur: {typeof summary.duration === 'number' ? (summary.duration/60).toFixed(0) : String(summary.duration)} min</Text> : null}
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={styles.actionsColumn}>
             <TouchableOpacity style={styles.btn} onPress={onClose}><Text style={styles.btnText}>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btn} onPress={buildRoute}><Text style={styles.btnText}>Trazar ruta</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: '#0a84ff' }]} onPress={handleConfirm}><Text style={[styles.btnText, { color: '#fff' }]}>Confirmar</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, { marginLeft: 8, backgroundColor: '#666' }]} onPress={() => setShowWeb(true)}><Text style={[styles.btnText, { color: '#fff' }]}>Mapa Web</Text></TouchableOpacity>
-            {/* OSM toggle removed - using Google only as requested */}
+            <TouchableOpacity style={[styles.btn, styles.primaryBtn]} onPress={handleConfirm}><Text style={[styles.btnText, { color: '#fff' }]}>Confirmar</Text></TouchableOpacity>
           </View>
         </View>
-        <MapWebFallback visible={showWeb} onClose={() => setShowWeb(false)} initialCenter={region} onSelect={(c) => {
-          // use fallback selection same logic as press
-          if (!origin) setOrigin(c);
-          else if (!destination) setDestination(c);
-          else { setOrigin(c); setDestination(null); setRouteGeo(null); setSummary(null); }
-        }} />
+        
       </View>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide">
+      {content}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  toolbar: { padding: 8, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', alignItems: 'center' },
-  btn: { padding: 8, marginLeft: 8, backgroundColor: '#eee', borderRadius: 6 },
-  btnText: { color: '#222' },
+  toolbar: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#eee',
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  infoColumn: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#111',
+  },
+  actionsColumn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  btn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginLeft: 8,
+    backgroundColor: '#eee',
+    borderRadius: 6,
+    minWidth: 64,
+    alignItems: 'center',
+  },
+  btnText: { color: '#222', fontSize: 13 },
+  primaryBtn: { backgroundColor: '#0a84ff' },
+
   debugOverlay: { position: 'absolute', top: 12, right: 12, alignItems: 'flex-end' },
-  debugBox: { backgroundColor: 'rgba(255,255,255,0.95)', padding: 8, borderRadius: 6, elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
+  debugBox: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    padding: 8,
+    borderRadius: 6,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    maxWidth: 220,
+  },
+  quickActions: { marginTop: 8, alignItems: 'flex-end' },
+  smallBtn: { backgroundColor: '#0a84ff', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 6 },
+  smallBtnText: { color: '#fff', fontSize: 12 },
   fab: { marginTop: 8, backgroundColor: '#0a84ff', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 6, alignItems: 'center' },
 });

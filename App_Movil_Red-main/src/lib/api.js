@@ -1,5 +1,5 @@
 // API helper library
-import { BACKEND_URL } from '../config';
+import { BACKEND_URL, ORS_API_KEY } from '../config';
 import { loadAuth, clearAuth } from './auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -279,10 +279,12 @@ export async function createCarpool(payload) {
   for (const a of candidates) {
     try {
       console.log('[api.createCarpool] intentando', a.path || a);
-      const res = await request(a.path, { method: a.method, body: a.body, headers: a.headers, _suppressWarns: true });
+      // Do not suppress warns here so we get full debug output while diagnosing
+      const res = await request(a.path, { method: a.method, body: a.body, headers: a.headers });
       return res;
     } catch (e) {
-      console.debug('[api.createCarpool] intento falló', a.path, e && e.status, e && (e.bodyText || e.body));
+      // Log detailed error info for diagnosis
+      try { console.warn('[api.createCarpool] intento falló', a.path, e && e.status, e && (e.bodyText || e.body)); } catch (xx) {}
       lastErr = e;
     }
   }
@@ -330,6 +332,10 @@ export async function searchPlaces(query, limit = 6) {
 export async function getRouteSummary(origin, destination) {
   if (!origin || !destination) return null;
   try {
+    if (!ORS_API_KEY) {
+      console.debug('[api.getRouteSummary] ORS_API_KEY not set, skipping route summary');
+      return null;
+    }
     const coords = [ [origin.longitude || origin.lon || origin.lng, origin.latitude || origin.lat], [destination.longitude || destination.lon || destination.lng, destination.latitude || destination.lat] ];
     const url = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
     const res = await fetch(url, { method: 'POST', headers: { 'Authorization': ORS_API_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ coordinates: coords }) });
@@ -348,6 +354,8 @@ export async function getRouteSummary(origin, destination) {
 export async function getCarpoolApplications(carpoolId) {
   if (!carpoolId) return [];
   const candidates = [
+    `/api/v1/pasajeros/ruta/${encodeURIComponent(carpoolId)}`, // backend: GET /pasajeros/ruta/{id_ruta}
+    `/api/v1/pasajeros?ruta_id=${encodeURIComponent(carpoolId)}`,
     `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/applications`,
     `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/applications/list`,
     `/api/v1/carpooling/${encodeURIComponent(carpoolId)}/postulaciones`,

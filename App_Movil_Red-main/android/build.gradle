@@ -6,8 +6,13 @@ buildscript {
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '21')
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
-        // Use Kotlin version compatible with AGP 7.4.2 and React Native 0.71.14
-        kotlinVersion = findProperty('android.kotlinVersion') ?: findProperty('kotlinVersion') ?: '1.7.22'
+        if (findProperty('android.kotlinVersion')) {
+            // Provide kotlinVersion as a callable closure for modules that expect
+            // to invoke it (ext.kotlinVersion()). Also fallback handled below.
+            kotlinVersion = { -> findProperty('android.kotlinVersion') }
+        } else {
+            kotlinVersion = { -> '1.8.10' }
+        }
         frescoVersion = findProperty('expo.frescoVersion') ?: '2.5.0'
 
         // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
@@ -18,36 +23,116 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath('com.android.tools.build:gradle:7.4.2')
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
-        classpath('com.facebook.react:react-native-gradle-plugin')
+        classpath('com.android.tools.build:gradle:8.1.1')
+        def resolvedKotlinVersion = (kotlinVersion instanceof Closure) ? kotlinVersion() : (kotlinVersion ?: '1.8.10')
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${resolvedKotlinVersion}")
+        // Use explicit version of the react-native Gradle plugin (matching local package)
+        // to avoid requiring an includeBuild() entry in `settings.gradle`.
+        classpath('com.facebook.react:react-native-gradle-plugin:0.71.19')
     }
 }
 
-subprojects {
-    // Make common build settings available to all subprojects BEFORE evaluation
-    // This is needed for expo modules that access these properties in buildscript blocks
-    ext {
-        compileSdkVersion = rootProject.ext.compileSdkVersion
-        targetSdkVersion = rootProject.ext.targetSdkVersion
-        buildToolsVersion = rootProject.ext.buildToolsVersion
-        kotlinVersion = { return rootProject.ext.kotlinVersion }
-    }
+// Expose these values to all subprojects (some packages evaluate before buildscript ext is visible).
+ext {
+    buildToolsVersion = findProperty('android.buildToolsVersion') ?: '34.0.0'
+    minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '21')
+    compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
+    targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
+    // Provide kotlinVersion as a closure so older expo module build scripts can
+    // call `ext.kotlinVersion()` when they expect it; consumers can also read
+    // the resolved string via `kotlinVersion()`.
+    kotlinVersion = { -> findProperty('android.kotlinVersion') ?: '1.8.10' }
+    // Also expose a string form for code that expects a plain value
+    kotlinVersionString = kotlinVersion()
+    frescoVersion = findProperty('expo.frescoVersion') ?: '2.5.0'
+    ndkVersion = "23.1.7779620"
 }
 
 allprojects {
     repositories {
-        maven {
-            // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-            url(new File(['node', '--print', "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), '../android'))
-        }
-        maven {
-            // Android JSC is installed from npm
-            url(new File(['node', '--print', "require.resolve('jsc-android/package.json')"].execute(null, rootDir).text.trim(), '../dist'))
-        }
+        // NOTE: Commented out local maven repos that point into node_modules. Keeping
+        // these active can cause Gradle to compile the react-native Gradle plugin
+        // from source (node_modules/react-native-gradle-plugin), which may trigger
+        // Kotlin compiler version mismatches on some machines. If you need to use
+        // local artifacts from node_modules, re-enable these lines.
+        // maven {
+        //     url(new File(['node', '--print', "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), '../android'))
+        // }
+        // maven {
+        //     url(new File(['node', '--print', "require.resolve('jsc-android/package.json')"].execute(null, rootDir).text.trim(), '../dist'))
+        // }
 
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
+    }
+}
+
+// Ensure Android library/application modules have buildConfig enabled by default.
+// Some autolinked or node_modules libraries add custom BuildConfig fields and
+// require `android.buildFeatures.buildConfig = true`. Instead of patching many
+// modules, enable it for all Android subprojects after they are evaluated.
+subprojects {
+    // Listen for Kotlin plugin application (covers `kotlin`, `kotlin-android`, etc.)
+    plugins.withId('kotlin') {
+        try {
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+                task.kotlinOptions.jvmTarget = '17'
+            }
+        } catch(ignore) { }
+    }
+    plugins.withId('kotlin-android') {
+        try {
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+                task.kotlinOptions.jvmTarget = '17'
+            }
+        } catch(ignore) { }
+    }
+    // Generic Kotlin base plugin guard
+    plugins.withType(org.jetbrains.kotlin.gradle.plugin.KotlinBasePluginWrapper) {
+        try {
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+                task.kotlinOptions.jvmTarget = '17'
+            }
+        } catch(ignore) { }
+    }
+
+    // Also handle projects that already evaluated: ensure android settings and Kotlin options
+    afterEvaluate { proj ->
+        try {
+            if (proj.plugins.hasPlugin('com.android.library') || proj.plugins.hasPlugin('com.android.application')) {
+                proj.android.buildFeatures {
+                    buildConfig true
+                }
+                // Ensure Java compatibility matches Kotlin's jvmTarget to avoid
+                // "Kotlin and Java target compatibility should be the same" errors.
+                proj.android.compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
+                }
+                // Configure Kotlin compile tasks to use JVM target 17 if available
+                try {
+                    proj.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+                        task.kotlinOptions.jvmTarget = '17'
+                    }
+                } catch (ignore) {
+                    // If Kotlin plugin isn't applied yet, ignore.
+                }
+            }
+        } catch (ignored) {
+            // Some projects don't expose `android` or fail evaluation here; ignore.
+        }
+    }
+
+    // Fallback: when tasks are added later, if any Kotlin compile task appears set jvmTarget
+    tasks.whenTaskAdded { t ->
+        try {
+            if (t.class.name == 'org.jetbrains.kotlin.gradle.tasks.KotlinCompile' || t.name.toLowerCase().contains('kotlin')) {
+                // Groovy reflection set
+                try {
+                    t.kotlinOptions.jvmTarget = '17'
+                } catch(ignore) { }
+            }
+        } catch(ignore) { }
     }
 }

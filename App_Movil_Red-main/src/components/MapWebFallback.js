@@ -19,6 +19,9 @@ export default function MapWebFallback({ visible, onClose, onSelect, initialCent
   const [last, setLast] = useState(null);
   const webRef = useRef(null);
 
+  // Use Sucre as sensible default if initialCenter missing or near-zero
+  const fallbackLat = (initialCenter && initialCenter.latitude) || -19.0196;
+  const fallbackLng = (initialCenter && initialCenter.longitude) || -65.2619;
   const html = `
   <!DOCTYPE html>
   <html>
@@ -32,7 +35,8 @@ export default function MapWebFallback({ visible, onClose, onSelect, initialCent
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       (function(){
-        const center = [${(initialCenter && initialCenter.latitude) || 0}, ${(initialCenter && initialCenter.longitude) || 0}];
+        const center = [${fallbackLat}, ${fallbackLng}];
+        // zoom 13 gives a good city/routing view for Sucre
         const map = L.map('map').setView(center, 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,

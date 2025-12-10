@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, RefreshControl, Modal } from 'react-native';
 import api from '../lib/api';
 import { loadAuth } from '../lib/auth';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import MapPicker from '../components/MapPicker';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
+import TimeSelector from '../components/TimeSelector';
 import { Button, Card, Avatar } from '../components/UI';
 import { useTheme } from '../context/ThemeContext';
 
@@ -216,6 +218,18 @@ export default function CarpoolingScreen({ user: userProp }) {
       borderLeftWidth: 4,
       borderLeftColor: theme.colors.primary,
     },
+    miniMapContainer: {
+      height: 180,
+      marginBottom: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    miniMap: {
+      flex: 1,
+      height: 180,
+    },
     myRouteHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -343,6 +357,13 @@ export default function CarpoolingScreen({ user: userProp }) {
       color: theme.colors.text,
       flex: 1,
     },
+    mapContainer: {
+      height: 360,
+      marginBottom: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      position: 'relative',
+    },
     createButton: {
       marginTop: theme.spacing.md,
     },
@@ -356,10 +377,24 @@ export default function CarpoolingScreen({ user: userProp }) {
   const [destination, setDestination] = useState('');
   const [originCoords, setOriginCoords] = useState(null);
   const [destinationCoords, setDestinationCoords] = useState(null);
-  const [mapPickerVisible, setMapPickerVisible] = useState(false);
-  const [mapPickerCallback, setMapPickerCallback] = useState(null);
+  const [previewMapVisible, setPreviewMapVisible] = useState(false);
+  const [previewOrigin, setPreviewOrigin] = useState(null);
+  const [previewDestination, setPreviewDestination] = useState(null);
+  const [previewRouteGeo, setPreviewRouteGeo] = useState(null);
+  const [routeGeo, setRouteGeo] = useState(null);
+  const [routeSummary, setRouteSummary] = useState(null);
   const [departureTime, setDepartureTime] = useState('');
   const [seatsTotal, setSeatsTotal] = useState('1');
+  const weekdayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const [daysSelected, setDaysSelected] = useState([weekdayNames[new Date().getDay()]]);
+
+  const toggleDay = (d) => {
+    setDaysSelected((cur) => {
+      if (!cur) return [d];
+      if (cur.includes(d)) return cur.filter(x => x !== d);
+      return [...cur, d];
+    });
+  };
 
   // Lists
   const [exploreRoutes, setExploreRoutes] = useState([]);
@@ -380,6 +415,46 @@ export default function CarpoolingScreen({ user: userProp }) {
     })();
   }, []);
 
+  const checkAuth = async () => {
+    try {
+      const a = await loadAuth();
+      console.log('[Carpool] stored auth', a);
+      // Call validate-token and log very detailed info for debugging
+      // Use the API v1 path (consistent with other calls)
+      const res = await api.request('/api/v1/auth/validate-token', { method: 'POST' });
+      console.log('[Carpool] validate-token', res);
+      try { Alert.alert('Token info', JSON.stringify(res)); } catch (aErr) { console.warn('[Carpool] Alert failed', aErr); }
+    } catch (e) {
+      // Enhanced error logging to capture details from different environments
+      try {
+        console.warn('[Carpool] validate-token failed (raw)', e);
+        // If it's an object with properties, log keys and known fields
+        if (e && typeof e === 'object') {
+          try { console.warn('[Carpool] error keys', Object.keys(e)); } catch (kErr) { console.warn('[Carpool] error.keys failed', kErr); }
+          try { if (e.stack) console.warn('[Carpool] stack', e.stack); } catch (sErr) { /* ignore */ }
+          try {
+            const body = e.body || e.bodyText || e.message || null;
+            if (body) console.warn('[Carpool] error body/text/message', body);
+            // attempt safe stringify
+            try { console.warn('[Carpool] error (stringified)', JSON.stringify(e)); } catch (jErr) { console.warn('[Carpool] stringify error', jErr); }
+          } catch (inner) { console.warn('[Carpool] inner error logging failed', inner); }
+        }
+      } catch (logErr) {
+        console.warn('[Carpool] validate-token failed (logging failed)', logErr);
+      }
+      // Show user-friendly alert with best available info
+      let alertMsg = 'Validación de token fallida';
+      try {
+        if (e && (e.bodyText || e.body)) alertMsg += ': ' + (typeof e.body === 'string' ? e.body : JSON.stringify(e.body || e.bodyText));
+        else if (e && e.message) alertMsg += ': ' + e.message;
+        else alertMsg += ': ' + String(e);
+      } catch (formatErr) {
+        alertMsg += ' (error al formatear detalles)';
+      }
+      try { Alert.alert('Error', alertMsg); } catch (aErr) { console.warn('[Carpool] Alert failed', aErr); }
+    }
+  };
+
   // Helper to safely format place fields that may be string or object {latitude, longitude, address}
   const formatPlace = (p) => {
     if (!p && p !== 0) return '';
@@ -399,6 +474,51 @@ export default function CarpoolingScreen({ user: userProp }) {
       return JSON.stringify(p);
     }
     return String(p);
+  };
+
+  // Try parsing a coordinate string like "lat,lon" or object -> { latitude, longitude }
+  const parseCoord = (v) => {
+    if (!v && v !== 0) return null;
+    if (typeof v === 'object') {
+      const lat = Number(v.latitude || v.lat || v.latitud || v.latitud);
+      const lon = Number(v.longitude || v.lon || v.lng || v.longitud || v.long);
+      if (!Number.isNaN(lat) && !Number.isNaN(lon)) return { latitude: lat, longitude: lon };
+      return null;
+    }
+    if (typeof v === 'string') {
+      const s = v.replace(/\s+/g, '');
+      const parts = s.split(',');
+      if (parts.length >= 2) {
+        const lat = Number(parts[0]);
+        const lon = Number(parts[1]);
+        if (!Number.isNaN(lat) && !Number.isNaN(lon)) return { latitude: lat, longitude: lon };
+      }
+    }
+    return null;
+  };
+
+  // Normalize route geometry (accepts GeoJSON coords [[lon,lat],...] or [{latitude,longitude},...])
+  const normalizeRouteGeo = (g) => {
+    if (!g) return null;
+    if (!Array.isArray(g)) return null;
+    try {
+      const coords = g.map(pt => {
+        if (!pt) return null;
+        if (Array.isArray(pt) && pt.length >= 2) {
+          // geojson [lon, lat]
+          return { latitude: Number(pt[1]), longitude: Number(pt[0]) };
+        }
+        if (typeof pt === 'object') {
+          if (pt.latitude !== undefined && pt.longitude !== undefined) return { latitude: Number(pt.latitude), longitude: Number(pt.longitude) };
+          if (pt.lat !== undefined && (pt.lon !== undefined || pt.lng !== undefined)) return { latitude: Number(pt.lat), longitude: Number(pt.lon || pt.lng) };
+        }
+        return null;
+      }).filter(Boolean);
+      return coords.length ? coords : null;
+    } catch (e) {
+      console.warn('[Carpool] normalizeRouteGeo failed', e);
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -463,9 +583,12 @@ export default function CarpoolingScreen({ user: userProp }) {
     payload.destination_address = destination.trim();
     setLoading(true);
     try {
-      // attempt to compute route summary (distance/duration) client-side if ORS key available
+      // use route summary computed by the embedded map if available, otherwise try API
       try {
-        if (originCoords && destinationCoords) {
+        if (routeSummary && (typeof routeSummary.distance !== 'undefined')) {
+          payload.distancia_m = routeSummary.distance;
+          payload.duracion_s = routeSummary.duration;
+        } else if (originCoords && destinationCoords) {
           const summary = await api.getRouteSummary(originCoords, destinationCoords).catch(() => null);
           if (summary) {
             payload.distancia_m = summary.distance; // meters
@@ -488,16 +611,57 @@ export default function CarpoolingScreen({ user: userProp }) {
         }
       } catch (e) { console.debug('[Carpool] reverse geocode failed', e); }
 
-      await api.createCarpool(payload);
+      // Map payload to backend expected field names/format
+      const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
+      const ensureHHMMSS = (s) => {
+        if (!s) return `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}:00`;
+        // If already HH:MM:SS
+        const m1 = s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+        if (m1) return `${pad(Number(m1[1]))}:${pad(Number(m1[2]))}:${pad(Number(m1[3]))}`;
+        const m2 = s.match(/^(\d{1,2}):(\d{2})/);
+        if (m2) return `${pad(Number(m2[1]))}:${pad(Number(m2[2]))}:00`;
+        return s;
+      };
+
+      const backendPayload = Object.assign({}, payload);
+      // punto_inicio / punto_destino expected as strings by backend (e.g. address or "lat, lon")
+      backendPayload.punto_inicio = backendPayload.origin_address || (originCoords ? `${originCoords.latitude}, ${originCoords.longitude}` : '');
+      backendPayload.punto_destino = backendPayload.destination_address || (destinationCoords ? `${destinationCoords.latitude}, ${destinationCoords.longitude}` : '');
+
+      // hora_salida strict format
+      backendPayload.hora_salida = ensureHHMMSS(departureTime || payload.hora_salida);
+
+      // dias_disponibles required by backend - send as comma-separated string with capitalized names
+      if (Array.isArray(daysSelected) && daysSelected.length) backendPayload.dias_disponibles = daysSelected.join(',');
+      else backendPayload.dias_disponibles = weekdayNames.slice(1).join(',');
+
+      // capacidad_ruta expected name
+      backendPayload.capacidad_ruta = Number(seatsTotal) || Number(payload.capacidad) || 1;
+
+      // also keep backwards-compatible keys
+      backendPayload.origen = payload.origen;
+      backendPayload.destino = payload.destino;
+
+      await api.createCarpool(backendPayload);
       Alert.alert('Éxito', 'Ruta creada');
       setOrigin(''); setDestination(''); setDepartureTime(''); setSeatsTotal('1');
+      setRouteGeo(null); setRouteSummary(null); setOriginCoords(null); setDestinationCoords(null);
       // refresh
       await loadExplore();
       await loadMyRoutes();
       setTab('Explorar');
     } catch (e) {
       console.warn('[Carpool] create failed', e);
-      Alert.alert('Error', 'No se pudo crear la ruta');
+      // Show more detailed backend error if available
+      try {
+        const msg = e && (e.body || e.bodyText || e.message) ? JSON.stringify(e.body || e.bodyText || e.message) : String(e);
+        Alert.alert('Error', 'No se pudo crear la ruta', [{ text: 'OK' }], { cancelable: true });
+        console.warn('[Carpool] backend error detail', msg);
+        // show a smaller toast-like alert with details (second alert)
+        Alert.alert('Detalles', msg);
+      } catch (xx) {
+        Alert.alert('Error', 'No se pudo crear la ruta');
+      }
     } finally { setLoading(false); }
   };
 
@@ -547,9 +711,14 @@ export default function CarpoolingScreen({ user: userProp }) {
 
   const renderRouteItem = ({ item }) => {
     const available = computeAvailable(item);
-    const from = formatPlace(item.origen || item.origin || item.from);
-    const to = formatPlace(item.destino || item.destination || item.to);
+    const from = formatPlace(item.origen || item.punto_inicio || item.origin || item.from);
+    const to = formatPlace(item.destino || item.punto_destino || item.destination || item.to);
     const driverName = item.conductor?.nombre || item.driver?.nombre || item.creator?.nombre || 'Conductor';
+    const capacity = item.capacidad || item.seats_total || item.capacity || item.capacidad_ruta || '-';
+    // try parse coordinates for preview
+    const coordFrom = parseCoord(item.origin_coords || item.origin_coord || item.punto_inicio || item.origen || item.origin);
+    const coordTo = parseCoord(item.destination_coords || item.destination_coord || item.punto_destino || item.destino || item.destination);
+    const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
     
     return (
       <View style={styles.routeCard}>
@@ -587,13 +756,49 @@ export default function CarpoolingScreen({ user: userProp }) {
           </View>
         </View>
         
+        {routeGeo || coordFrom || coordTo ? (
+          <TouchableOpacity activeOpacity={0.9} onPress={() => {
+            // open full map preview modal
+            setPreviewOrigin(coordFrom);
+            setPreviewDestination(coordTo);
+            setPreviewRouteGeo(normalizeRouteGeo(routeGeo) || null);
+            setPreviewMapVisible(true);
+          }}>
+            <View style={styles.miniMapContainer}>
+              <MapView
+                provider={MapView.PROVIDER_GOOGLE}
+                style={styles.miniMap}
+                mapType="standard"
+                initialRegion={(() => {
+                  const fallback = { latitude: -19.0196, longitude: -65.2619 };
+                  const a = coordFrom || (routeGeo && (routeGeo[0] && ({ latitude: routeGeo[0].latitude || routeGeo[0][1], longitude: routeGeo[0].longitude || routeGeo[0][0] }))) || fallback;
+                  const b = coordTo || (routeGeo && (routeGeo[routeGeo.length-1] && ({ latitude: routeGeo[routeGeo.length-1].latitude || routeGeo[routeGeo.length-1][1], longitude: routeGeo[routeGeo.length-1].longitude || routeGeo[routeGeo.length-1][0] }))) || a;
+                  const latDelta = Math.max(0.005, Math.abs((a.latitude || 0) - (b.latitude || 0)) * 1.6);
+                  const lonDelta = Math.max(0.005, Math.abs((a.longitude || 0) - (b.longitude || 0)) * 1.6);
+                  return { latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2, longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2, latitudeDelta: Math.min(latDelta, 0.3), longitudeDelta: Math.min(lonDelta, 0.3) };
+                })()}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+              >
+                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" /> : null}
+                {coordTo ? <Marker coordinate={coordTo} pinColor="red" /> : null}
+                {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
+                  <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
+                ) : null}
+              </MapView>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
         {item.descripcion || item.description ? (
           <Text style={styles.routeDescription}>{item.descripcion || item.description}</Text>
         ) : null}
         
         <View style={styles.routeFooter}>
           <View style={styles.routeStats}>
-            <Text style={styles.routeStatItem}>👥 {item.capacidad || item.seats_total || item.capacity || 0} asientos</Text>
+            <Text style={styles.routeStatItem}>👥 {capacity} asientos</Text>
           </View>
           <View style={styles.routeActions}>
             <TouchableOpacity 
@@ -620,8 +825,12 @@ export default function CarpoolingScreen({ user: userProp }) {
   };
 
   const renderMyRouteItem = ({ item }) => {
-    const from = formatPlace(item.origen || item.origin || item.from);
-    const to = formatPlace(item.destino || item.destination || item.to);
+    const from = formatPlace(item.origen || item.punto_inicio || item.origin || item.from);
+    const to = formatPlace(item.destino || item.punto_destino || item.destination || item.to);
+    const capacity = item.capacidad || item.seats_total || item.capacity || item.capacidad_ruta || '-';
+    const coordFrom = parseCoord(item.origin_coords || item.origin_coord || item.punto_inicio || item.origen || item.origin);
+    const coordTo = parseCoord(item.destination_coords || item.destination_coord || item.punto_destino || item.destino || item.destination);
+    const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
     return (
       <View style={styles.myRouteCard}>
         <View style={styles.myRouteHeader}>
@@ -651,8 +860,44 @@ export default function CarpoolingScreen({ user: userProp }) {
           </View>
         </View>
         
+        {routeGeo || coordFrom || coordTo ? (
+          <TouchableOpacity activeOpacity={0.9} onPress={() => {
+            // open full map preview modal
+            setPreviewOrigin(coordFrom);
+            setPreviewDestination(coordTo);
+            setPreviewRouteGeo(normalizeRouteGeo(routeGeo) || null);
+            setPreviewMapVisible(true);
+          }}>
+            <View style={styles.miniMapContainer}>
+              <MapView
+                provider={MapView.PROVIDER_GOOGLE}
+                style={styles.miniMap}
+                mapType="standard"
+                initialRegion={(() => {
+                  const fallback = { latitude: -19.0196, longitude: -65.2619 };
+                  const a = coordFrom || (routeGeo && (routeGeo[0] && ({ latitude: routeGeo[0].latitude || routeGeo[0][1], longitude: routeGeo[0].longitude || routeGeo[0][0] }))) || fallback;
+                  const b = coordTo || (routeGeo && (routeGeo[routeGeo.length-1] && ({ latitude: routeGeo[routeGeo.length-1].latitude || routeGeo[routeGeo.length-1][1], longitude: routeGeo[routeGeo.length-1].longitude || routeGeo[routeGeo.length-1][0] }))) || a;
+                  const latDelta = Math.max(0.005, Math.abs((a.latitude || 0) - (b.latitude || 0)) * 1.6);
+                  const lonDelta = Math.max(0.005, Math.abs((a.longitude || 0) - (b.longitude || 0)) * 1.6);
+                  return { latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2, longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2, latitudeDelta: Math.min(latDelta, 0.3), longitudeDelta: Math.min(lonDelta, 0.3) };
+                })()}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+              >
+                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" /> : null}
+                {coordTo ? <Marker coordinate={coordTo} pinColor="red" /> : null}
+                {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
+                  <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
+                ) : null}
+              </MapView>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.capacityInfo}>
-          <Text style={styles.capacityText}>👥 Capacidad total: {item.capacidad || item.seats_total || item.capacity || '-'}</Text>
+          <Text style={styles.capacityText}>👥 Capacidad total: {capacity}</Text>
         </View>
         
         <View style={styles.applicationsSection}>
@@ -699,55 +944,84 @@ export default function CarpoolingScreen({ user: userProp }) {
 
         {tab === 'Crear' && (
           <ScrollView style={styles.createForm} contentContainerStyle={styles.createFormContent}>
+            <View style={styles.mapContainer}>
+              <MapPicker
+                inline={true}
+                initialRegion={null}
+                onChange={(p) => {
+                  // p: { origin } or { destination }
+                  if (p.origin) {
+                    setOrigin(`${p.origin.latitude.toFixed(5)}, ${p.origin.longitude.toFixed(5)}`);
+                    setOriginCoords(p.origin);
+                  }
+                  if (p.destination) {
+                    setDestination(`${p.destination.latitude.toFixed(5)}, ${p.destination.longitude.toFixed(5)}`);
+                    setDestinationCoords(p.destination);
+                  }
+                }}
+                onConfirm={(res) => {
+                  console.log('[CarpoolingScreen] MapPicker onConfirm', res);
+                  if (res && res.origin && res.destination) {
+                    setOrigin(`${res.origin.latitude.toFixed(5)}, ${res.origin.longitude.toFixed(5)}`);
+                    setOriginCoords(res.origin);
+                    setDestination(`${res.destination.latitude.toFixed(5)}, ${res.destination.longitude.toFixed(5)}`);
+                    setDestinationCoords(res.destination);
+                    setRouteGeo(res.routeGeo || null);
+                    setRouteSummary(res.summary || null);
+                  }
+                }}
+              />
+            </View>
+
             <View style={styles.formSection}>
               <Text style={styles.formLabel}>📍 Punto de Partida</Text>
               <PlaceAutocomplete 
                 placeholder="Buscar dirección de origen" 
+                value={origin}
                 onSelect={(p) => { 
                   setOrigin(p.name); 
                   setOriginCoords({ latitude: p.latitude, longitude: p.longitude }); 
                 }} 
               />
-              <TouchableOpacity 
-                style={styles.mapButton} 
-                onPress={() => { setMapPickerCallback('origin'); setMapPickerVisible(true); }}
-              >
-                <Text style={styles.mapButtonIcon}>🗺️</Text>
-                <Text style={styles.mapButtonText}>
-                  {origin ? `Origen: ${origin}` : 'O seleccionar en el mapa'}
-                </Text>
+              <TouchableOpacity onPress={checkAuth} style={{ marginTop: 8 }}>
+                <Text style={{ color: theme.colors.primary, fontSize: 12 }}>Verificar sesión / token</Text>
               </TouchableOpacity>
+              <Text style={{ marginTop: 8, color: theme.colors.textLight, fontSize: 12 }}>O selecciona el punto en el mapa arriba (primer toque = origen)</Text>
             </View>
 
             <View style={styles.formSection}>
               <Text style={styles.formLabel}>🎯 Destino</Text>
               <PlaceAutocomplete 
                 placeholder="Buscar dirección de destino" 
+                value={destination}
                 onSelect={(p) => { 
                   setDestination(p.name); 
                   setDestinationCoords({ latitude: p.latitude, longitude: p.longitude }); 
                 }} 
               />
-              <TouchableOpacity 
-                style={styles.mapButton} 
-                onPress={() => { setMapPickerCallback('destination'); setMapPickerVisible(true); }}
-              >
-                <Text style={styles.mapButtonIcon}>🗺️</Text>
-                <Text style={styles.mapButtonText}>
-                  {destination ? `Destino: ${destination}` : 'O seleccionar en el mapa'}
-                </Text>
-              </TouchableOpacity>
+              <Text style={{ marginTop: 8, color: theme.colors.textLight, fontSize: 12 }}>O selecciona el punto en el mapa arriba (segundo toque = destino)</Text>
             </View>
 
             <View style={styles.formSection}>
               <Text style={styles.formLabel}>🕐 Hora de Salida</Text>
-              <TextInput 
-                placeholder="Ej: 08:00 AM" 
-                value={departureTime} 
-                onChangeText={setDepartureTime} 
-                style={styles.input}
-                placeholderTextColor={theme.colors.textLight}
+              <TimeSelector
+                value={departureTime}
+                onChange={(v) => setDepartureTime(v)}
+                placeholder="Seleccionar hora"
               />
+              <Text style={{ marginTop: 8, color: theme.colors.textLight, fontSize: 12 }}>Toca para elegir la hora. Se enviará en formato HH:MM:SS</Text>
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={styles.formLabel}>📅 Días disponibles</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {weekdayNames.slice(1).map((d) => (
+                  <TouchableOpacity key={d} onPress={() => toggleDay(d)} style={{ padding: 8, margin: 4, borderRadius: 6, backgroundColor: daysSelected && daysSelected.includes(d) ? theme.colors.primary : theme.colors.card }}>
+                    <Text style={{ color: daysSelected && daysSelected.includes(d) ? '#fff' : theme.colors.text }}>{d.substr(0,3)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ marginTop: 8, color: theme.colors.textLight, fontSize: 12 }}>Selecciona los días en que la ruta está disponible.</Text>
             </View>
 
             <View style={styles.formSection}>
@@ -847,6 +1121,35 @@ export default function CarpoolingScreen({ user: userProp }) {
                       style={{ marginTop: 12 }}
                     >
                       ✕ Cancelar Postulación
+                  {/* Full-screen preview modal for route */}
+                  <Modal visible={previewMapVisible} animationType="slide">
+                    <View style={{ flex: 1 }}>
+                      <MapView
+                        provider={MapView.PROVIDER_GOOGLE}
+                        style={{ flex: 1 }}
+                        mapType="standard"
+                        initialRegion={(() => {
+                          const fallback = { latitude: -19.0196, longitude: -65.2619 };
+                          const a = previewOrigin || (previewRouteGeo && previewRouteGeo[0]) || fallback;
+                          const b = previewDestination || (previewRouteGeo && previewRouteGeo[previewRouteGeo.length-1]) || a;
+                          const latDelta = Math.max(0.01, Math.abs((a.latitude || 0) - (b.latitude || 0)) * 1.6);
+                          const lonDelta = Math.max(0.01, Math.abs((a.longitude || 0) - (b.longitude || 0)) * 1.6);
+                          return { latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2, longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2, latitudeDelta: Math.min(latDelta, 1), longitudeDelta: Math.min(lonDelta, 1) };
+                        })()}
+                      >
+                        {previewOrigin ? <Marker coordinate={previewOrigin} pinColor="green" /> : null}
+                        {previewDestination ? <Marker coordinate={previewDestination} pinColor="red" /> : null}
+                        {Array.isArray(previewRouteGeo) ? (
+                          <Polyline coordinates={previewRouteGeo} strokeColor="#0a84ff" strokeWidth={4} />
+                        ) : null}
+                      </MapView>
+                      <View style={{ position: 'absolute', top: 40, right: 12 }}>
+                        <TouchableOpacity onPress={() => setPreviewMapVisible(false)} style={{ backgroundColor: '#fff', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd' }}>
+                          <Text>Cerrar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </Modal>
                     </Button>
                   ) : null}
                 </View>
@@ -867,16 +1170,7 @@ export default function CarpoolingScreen({ user: userProp }) {
         )}
       </View>
       )}
-      <MapPicker visible={mapPickerVisible} initialRegion={null} onClose={() => setMapPickerVisible(false)} onConfirm={(res) => {
-        // res: { origin, destination, routeGeo, summary }
-        if (mapPickerCallback === 'origin') {
-          setOrigin(`${res.origin.latitude.toFixed(5)}, ${res.origin.longitude.toFixed(5)}`);
-          setOriginCoords(res.origin);
-        } else if (mapPickerCallback === 'destination') {
-          setDestination(`${res.destination.latitude.toFixed(5)}, ${res.destination.longitude.toFixed(5)}`);
-          setDestinationCoords(res.destination);
-        }
-      }} />
+      
     </View>
   );
 }
@@ -884,6 +1178,26 @@ export default function CarpoolingScreen({ user: userProp }) {
 function ApplicationsList({ carpool, onRespond }) {
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { theme } = useTheme();
+
+  const localStyles = {
+    applicationItem: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    applicantName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    applicantSeats: {
+      fontSize: 12,
+      color: theme.colors.textLight,
+      marginTop: 2,
+    },
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -915,12 +1229,12 @@ function ApplicationsList({ carpool, onRespond }) {
       {apps.map(a => {
         const userName = (a.usuario && (a.usuario.nombre || a.usuario)) || a.user || a.email || 'Usuario';
         return (
-          <View key={a.id || a.application_id || Math.random()} style={styles.applicationItem}>
+          <View key={a.id || a.application_id || Math.random()} style={localStyles.applicationItem}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <Avatar name={userName} size={36} />
               <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={styles.applicantName}>{userName}</Text>
-                <Text style={styles.applicantSeats}>🪑 {a.seats || a.solicitados || 1} asiento(s)</Text>
+                <Text style={localStyles.applicantName}>{userName}</Text>
+                <Text style={localStyles.applicantSeats}>🪑 {a.seats || a.solicitados || 1} asiento(s)</Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>

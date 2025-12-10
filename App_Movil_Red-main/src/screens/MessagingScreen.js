@@ -383,6 +383,19 @@ export default function MessagingScreen() {
       fontSize: 14,
       fontWeight: '700',
     },
+    existingChatBadge: {
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 16,
+      marginLeft: 8,
+      alignSelf: 'center',
+    },
+    existingChatBadgeText: {
+      color: theme.colors.surface,
+      fontSize: 12,
+      fontWeight: theme.fontWeights.bold,
+    },
     modalFooter: {
       flexDirection: 'row',
       padding: theme.spacing.lg,
@@ -517,6 +530,58 @@ export default function MessagingScreen() {
     }
   };
 
+  // Buscar si ya existe una conversación privada con este usuario dentro de los chats cargados
+  const findPrivateChatWithUser = (userId) => {
+    if (!userId || !Array.isArray(chats)) return null;
+    const uid = String(userId);
+    for (const c of chats) {
+      // varias formas en que un chat puede exponer participantes
+      try {
+        // otherUser shortcut (common shape)
+        const other = c.otherUser || c.otro_usuario || c.usuario || c.other_user;
+        if (other) {
+          const oid = other.id || other.id_user || other._id || other.usuario_id;
+          if (oid && String(oid) === uid) return c;
+        }
+
+        // participantes as array of ids or objects
+        const parts = c.participantes || c.participants || c.usuarios || c.users || c.members;
+        if (Array.isArray(parts)) {
+          for (const p of parts) {
+            const pid = (typeof p === 'object') ? (p.id || p.id_user || p._id || p.usuario_id) : p;
+            if (pid && String(pid) === uid) return c;
+          }
+        }
+
+        // fallback: some APIs include a single user id field for private chats
+        const possibleId = c.user_id || c.id_usuario || c.id_participante;
+        if (possibleId && String(possibleId) === uid) return c;
+      } catch (e) {
+        // ignore and continue
+      }
+    }
+    return null;
+  };
+
+  const handleUserPress = (user) => {
+    const userId = user.id || user.id_user;
+    // Si es chat privado, intentar abrir la conversación existente si está cargada
+    if (chatType === 'privado') {
+      const existing = findPrivateChatWithUser(userId);
+      if (existing) {
+        // cerrar modal y abrir conversación existente
+        setShowCreateModal(false);
+        setSearchQuery('');
+        setSelectedUsers([]);
+        setGroupName('');
+        openChat(existing);
+        return;
+      }
+    }
+    // si no existe, comportamiento por defecto: seleccionar/deseleccionar
+    toggleUserSelection(user);
+  };
+
   const createChat = async () => {
     if (chatType === 'privado' && selectedUsers.length !== 1) {
       alert('Selecciona un usuario para el chat privado');
@@ -557,7 +622,14 @@ export default function MessagingScreen() {
       }
     } catch (e) {
       console.warn('[Messaging] Error creando chat:', e);
-      alert('Error creando chat: ' + (e.message || 'Inténtalo de nuevo'));
+      // Mostrar información útil para depuración: status + body si están disponibles
+      let detail = 'Inténtalo de nuevo';
+      try {
+        if (e && e.status) detail = `Status ${e.status}` + (e.bodyText ? ` - ${e.bodyText}` : (e.body ? ` - ${JSON.stringify(e.body)}` : ''));
+        else if (e && e.bodyText) detail = e.bodyText;
+        else if (e && e.message) detail = e.message;
+      } catch (xx) {}
+      alert('Error creando chat: ' + detail);
     } finally {
       setCreating(false);
     }
@@ -592,13 +664,33 @@ export default function MessagingScreen() {
   };
 
   const renderMessage = ({ item, index }) => {
-    const isMyMessage =
-      currentUser &&
-      (item.sender === currentUser.id_user ||
-        item.from === currentUser.id_user ||
-        item.id_remitente === currentUser.id_user);
+    const isMessageFromCurrentUser = (msg) => {
+      if (!currentUser) return false;
+      const myIds = [currentUser.id_user, currentUser.id, currentUser.id_usuario, currentUser.usuario_id, currentUser._id]
+        .filter(Boolean)
+        .map(String);
+      const possible = [
+        msg.sender,
+        msg.from,
+        msg.id_remitente,
+        msg.remitente,
+        msg.remitente_id,
+        msg.id_usuario,
+        msg.sender_id,
+        msg.user_id,
+        msg.from_id,
+        msg.usuario && (msg.usuario.id || msg.usuario.id_user || msg.usuario._id),
+      ];
+      for (const p of possible) {
+        if (!p) continue;
+        if (myIds.includes(String(p))) return true;
+      }
+      return false;
+    };
 
-    const senderName = item.sender || item.from || item.usuario?.nombre || 'Usuario';
+    const isMyMessage = isMessageFromCurrentUser(item);
+
+    const senderName = item.sender || item.from || item.usuario?.nombre || item.usuario?.nombre_usuario || 'Usuario';
     const messageText = item.text || item.body || item.contenido || JSON.stringify(item);
     const timestamp = item.timestamp || item.fecha || item.fecha_creacion;
 
@@ -753,6 +845,9 @@ export default function MessagingScreen() {
                   const userName = user.nombre || user.name || user.username || user.email;
                   const userId = user.id || user.id_user;
                   const isSelected = selectedUsers.some(u => (u.id || u.id_user) === userId);
+                  // detect if we already have a private chat loaded for this user
+                  // Only consider existing conversations when creating a private chat
+                  const existing = (chatType === 'privado') ? findPrivateChatWithUser(userId) : null;
                   
                   return (
                     <TouchableOpacity
@@ -761,7 +856,7 @@ export default function MessagingScreen() {
                         styles.userResultItem,
                         isSelected && styles.userResultItemSelected
                       ]}
-                      onPress={() => toggleUserSelection(user)}
+                      onPress={() => handleUserPress(user)}
                     >
                       <Avatar name={userName} size={40} />
                       <View style={styles.userResultInfo}>
@@ -770,10 +865,21 @@ export default function MessagingScreen() {
                           <Text style={styles.userResultEmail}>{user.email}</Text>
                         )}
                       </View>
-                      {isSelected && (
-                        <View style={styles.checkmark}>
-                          <Text style={styles.checkmarkText}>✓</Text>
-                        </View>
+
+                      {existing ? (
+                        <TouchableOpacity
+                          style={styles.existingChatBadge}
+                          onPress={() => { setShowCreateModal(false); setSearchQuery(''); setSelectedUsers([]); setGroupName(''); openChat(existing); }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.existingChatBadgeText}>Abrir</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        isSelected && (
+                          <View style={styles.checkmark}>
+                            <Text style={styles.checkmarkText}>✓</Text>
+                          </View>
+                        )
                       )}
                     </TouchableOpacity>
                   );

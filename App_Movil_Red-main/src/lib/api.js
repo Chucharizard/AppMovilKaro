@@ -508,15 +508,90 @@ export async function sendMessage(chatId, payload) {
 
 export async function createConversation(participantes, tipo = 'privada', nombre = null) {
   // Crear nueva conversación (privada o grupal)
-  return await request('/api/v1/mensajes/conversaciones', { 
-    method: 'POST', 
-    body: JSON.stringify({ participantes, tipo, nombre }) 
-  });
+  // Algunos backends exponen diferentes endpoints / body shapes. Probar varias variantes.
+  const paths = [
+    '/api/v1/mensajes/conversaciones',
+    '/api/v1/conversaciones',
+    '/api/v1/chats',
+    '/api/v1/mensajes/conversation',
+    '/api/v1/mensajes/chats',
+  ];
+
+  const bodyShapes = [
+    { participantes, tipo, nombre },
+    { participants: participantes, tipo, nombre },
+    { usuarios: participantes, tipo, nombre },
+    { integrantes: participantes, tipo, nombre },
+    { ids: participantes, tipo, nombre },
+    // some backends expect string 'privada' vs 'privado' or 'grupo' vs 'grupal'
+    { participantes, tipo: (tipo === 'privada' ? 'privado' : tipo), nombre },
+    { participantes, tipo: (tipo === 'privada' ? 'privada' : (tipo === 'grupo' ? 'grupal' : tipo)), nombre },
+  ];
+
+  let lastErr = null;
+  for (const p of paths) {
+    for (const b of bodyShapes) {
+      try {
+        // Try JSON
+        const res = await request(p, { method: 'POST', body: JSON.stringify(b) });
+        return res;
+      } catch (e) {
+        lastErr = e;
+        // try urlencoded version if JSON failed
+        try {
+          const urlenc = new URLSearchParams(Object.keys(b).reduce((acc, k) => {
+            const v = b[k];
+            // if array, append multiple params
+            if (Array.isArray(v)) {
+              v.forEach(item => { acc.push([k, String(item)]); });
+            } else if (v !== undefined && v !== null) {
+              acc.push([k, String(v)]);
+            }
+            return acc;
+          }, [])).toString();
+          const res2 = await request(p, { method: 'POST', body: urlenc, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+          return res2;
+        } catch (e2) {
+          lastErr = e2 || lastErr;
+        }
+      }
+    }
+  }
+  // If all attempts failed, throw last error to let caller handle (it may contain status/body)
+  throw lastErr || new Error('No se pudo crear la conversación');
 }
 
 export async function searchUsers(query) {
-  // Buscar usuarios por nombre, apellido o correo
-  return await request(`/api/v1/usuarios/search/query?q=${encodeURIComponent(query)}`, { method: 'GET' });
+  // Buscar usuarios por nombre, apellido o correo. Probar varias rutas comunes.
+  const candidates = [
+    `/api/v1/usuarios/search/query?q=${encodeURIComponent(query)}`,
+    `/api/v1/usuarios/search?q=${encodeURIComponent(query)}`,
+    `/api/v1/usuarios?q=${encodeURIComponent(query)}`,
+    `/api/v1/usuarios?query=${encodeURIComponent(query)}`,
+    `/api/v1/usuarios/list?search=${encodeURIComponent(query)}`,
+    `/api/v1/usuarios/buscar?q=${encodeURIComponent(query)}`,
+  ];
+  let lastErr = null;
+  for (const p of candidates) {
+    try {
+      const res = await request(p, { method: 'GET', _suppressWarns: true });
+      if (!res) return [];
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.data)) return res.data;
+      // if object contains array-like field, pick first
+      for (const k of Object.keys(res || {})) {
+        try { if (Array.isArray(res[k])) return res[k]; } catch (e) {}
+      }
+      // if result is single user object, return as array
+      if (res && typeof res === 'object') return [res];
+    } catch (e) {
+      lastErr = e;
+      // continue trying other candidate endpoints
+    }
+  }
+  // If nothing matched, throw the last error to help debugging (e.g., 401/403)
+  if (lastErr) throw lastErr;
+  return [];
 }
 
 // Friends / Notifications / Profile

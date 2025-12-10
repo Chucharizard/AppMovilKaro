@@ -749,8 +749,9 @@ export default function CarpoolingScreen({ user: userProp }) {
     const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
 
-    // Only show map if we have VALID coordinates (not just truthy objects)
-    const showMap = isValidCoord(coordFrom) || isValidCoord(coordTo);
+    // DISABLED: Mini-maps disabled until WebView is properly linked
+    // Will be re-enabled after npx expo run-android
+    const showMap = false; // isValidCoord(coordFrom) || isValidCoord(coordTo);
     
     return (
       <View style={styles.routeCard}>
@@ -876,8 +877,9 @@ export default function CarpoolingScreen({ user: userProp }) {
     const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
 
-    // Only show map if we have VALID coordinates (not just truthy objects)
-    const showMap = isValidCoord(coordFrom) || isValidCoord(coordTo);
+    // DISABLED: Mini-maps disabled until WebView is properly linked
+    // Will be re-enabled after npx expo run-android
+    const showMap = false; // isValidCoord(coordFrom) || isValidCoord(coordTo);
     return (
       <View style={styles.myRouteCard}>
         <View style={styles.myRouteHeader}>
@@ -1006,8 +1008,8 @@ export default function CarpoolingScreen({ user: userProp }) {
             <Text style={{ fontSize: 12, color: theme.colors.textLight, marginBottom: 8 }}>
               1️⃣ Toca en el mapa para marcar ORIGEN • 2️⃣ Toca otra vez para DESTINO • 3️⃣ Presiona "Trazar" para ver la ruta
             </Text>
-            <Text style={{ fontSize: 11, color: theme.colors.error, marginBottom: 8, fontStyle: 'italic' }}>
-              ⚠️ Si el mapa no aparece: Asegúrate de que Google Play Services esté actualizado y que la app tenga permisos de ubicación
+            <Text style={{ fontSize: 11, color: '#ff9500', marginBottom: 8, fontStyle: 'italic' }}>
+              ℹ️ Para ver el mapa visual con Leaflet, ejecuta: npx expo run-android
             </Text>
             <View style={styles.mapContainer}>
               <MapPicker

@@ -476,6 +476,23 @@ export default function CarpoolingScreen({ user: userProp }) {
     return String(p);
   };
 
+  // Helper: Check if coordinate is valid (has numeric lat/lon)
+  const isValidCoord = (coord) => {
+    if (!coord || typeof coord !== 'object') return false;
+    const lat = coord.latitude;
+    const lon = coord.longitude;
+    return (
+      typeof lat === 'number' &&
+      typeof lon === 'number' &&
+      !Number.isNaN(lat) &&
+      !Number.isNaN(lon) &&
+      lat !== 0 &&
+      lon !== 0 &&
+      lat >= -90 && lat <= 90 &&
+      lon >= -180 && lon <= 180
+    );
+  };
+
   // Try parsing a coordinate string like "lat,lon" or object -> { latitude, longitude }
   const parseCoord = (v) => {
     if (!v && v !== 0) return null;
@@ -732,8 +749,8 @@ export default function CarpoolingScreen({ user: userProp }) {
     const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
 
-    // Only show map if we have at least origin or destination coordinates
-    const showMap = coordFrom || coordTo;
+    // Only show map if we have VALID coordinates (not just truthy objects)
+    const showMap = isValidCoord(coordFrom) || isValidCoord(coordTo);
     
     return (
       <View style={styles.routeCard}>
@@ -804,10 +821,10 @@ export default function CarpoolingScreen({ user: userProp }) {
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom && coordFrom.latitude && coordFrom.longitude ? (
+                {isValidCoord(coordFrom) ? (
                   <Marker coordinate={coordFrom} pinColor="green" title="Origen" />
                 ) : null}
-                {coordTo && coordTo.latitude && coordTo.longitude ? (
+                {isValidCoord(coordTo) ? (
                   <Marker coordinate={coordTo} pinColor="red" title="Destino" />
                 ) : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
@@ -859,8 +876,8 @@ export default function CarpoolingScreen({ user: userProp }) {
     const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
 
-    // Only show map if we have at least origin or destination coordinates
-    const showMap = coordFrom || coordTo;
+    // Only show map if we have VALID coordinates (not just truthy objects)
+    const showMap = isValidCoord(coordFrom) || isValidCoord(coordTo);
     return (
       <View style={styles.myRouteCard}>
         <View style={styles.myRouteHeader}>
@@ -923,10 +940,10 @@ export default function CarpoolingScreen({ user: userProp }) {
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom && coordFrom.latitude && coordFrom.longitude ? (
+                {isValidCoord(coordFrom) ? (
                   <Marker coordinate={coordFrom} pinColor="green" title="Origen" />
                 ) : null}
-                {coordTo && coordTo.latitude && coordTo.longitude ? (
+                {isValidCoord(coordTo) ? (
                   <Marker coordinate={coordTo} pinColor="red" title="Destino" />
                 ) : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (

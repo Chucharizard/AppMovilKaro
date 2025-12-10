@@ -1,11 +1,21 @@
+// MapPicker now uses Leaflet via WebView for guaranteed tile rendering
+// This avoids issues with Google Maps API keys, Play Services, and native map providers
+import MapPickerLeaflet from './MapPickerLeaflet';
+
+export default function MapPicker(props) {
+  // Simply delegate to MapPickerLeaflet
+  return <MapPickerLeaflet {...props} />;
+}
+
+/*
+// OLD IMPLEMENTATION - DISABLED (native MapView had tile loading issues)
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ORS_API_KEY, GOOGLE_MAPS_API_KEY } from '../config';
 import MapWebFallback from './MapWebFallback';
 
-// MapPicker: modal map to choose origin and destination and draw route via ORS
-export default function MapPicker({ visible, onClose, onConfirm, initialRegion, inline = false, onChange = null }) {
+function MapPickerOld({ visible, onClose, onConfirm, initialRegion, inline = false, onChange = null }) {
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeGeo, setRouteGeo] = useState(null);
@@ -380,3 +390,4 @@ const styles = StyleSheet.create({
   smallBtnText: { color: '#fff', fontSize: 12 },
   fab: { marginTop: 8, backgroundColor: '#0a84ff', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 6, alignItems: 'center' },
 });
+*/

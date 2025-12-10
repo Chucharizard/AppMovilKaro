@@ -183,18 +183,44 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
   };
 
   const content = (
-    <View style={{ flex: 1, position: 'relative' }}>
+    <View style={{ flex: 1, position: 'relative', backgroundColor: '#f5f5f5' }}>
+      {!mapReady && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', zIndex: 1000 }}>
+          <Text style={{ fontSize: 16, color: '#666', marginBottom: 8 }}>🗺️ Cargando mapa...</Text>
+          <Text style={{ fontSize: 12, color: '#999' }}>Esto puede tomar unos segundos</Text>
+        </View>
+      )}
       <MapView
-          // Don't specify provider - let react-native-maps use the native map
-          style={{ flex: 1, width: '100%', height: '100%' }}
+          provider={MapView.PROVIDER_GOOGLE}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           ref={mapRef}
           initialRegion={initialRegion || region}
           onRegionChangeComplete={(r) => { setRegion(r); }}
           onPress={handlePress}
-          onMapReady={() => { console.log('[MapPicker] onMapReady'); setMapReady(true); setShowWeb(false); }}
-          onMapLoaded={() => { console.log('[MapPicker] onMapLoaded'); setMapReady(true); }}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
+          onMapReady={() => {
+            console.log('[MapPicker] ✅ onMapReady called - map is ready!');
+            setMapReady(true);
+            setShowWeb(false);
+            setMapInitTried(true);
+          }}
+          onMapLoaded={() => {
+            console.log('[MapPicker] ✅ onMapLoaded - map loaded successfully');
+            setMapReady(true);
+          }}
+          onError={(e) => {
+            console.error('[MapPicker] ❌ Map error:', e);
+            Alert.alert('Error del mapa', 'No se pudo cargar Google Maps. Verifica tu conexión o permisos de ubicación.');
+          }}
+          showsUserLocation={false}
+          showsMyLocationButton={false}
+          loadingEnabled={true}
+          loadingIndicatorColor="#0a84ff"
+          loadingBackgroundColor="#ffffff"
+          mapType="standard"
+          rotateEnabled={true}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          pitchEnabled={false}
         >
           {origin ? <Marker coordinate={origin} pinColor="green" title="Origen" description="Punto de partida" /> : null}
           {destination ? <Marker coordinate={destination} pinColor="red" title="Destino" description="Punto de llegada" /> : null}

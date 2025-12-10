@@ -981,6 +981,9 @@ export default function CarpoolingScreen({ user: userProp }) {
             <Text style={{ fontSize: 12, color: theme.colors.textLight, marginBottom: 8 }}>
               1️⃣ Toca en el mapa para marcar ORIGEN • 2️⃣ Toca otra vez para DESTINO • 3️⃣ Presiona "Trazar" para ver la ruta
             </Text>
+            <Text style={{ fontSize: 11, color: theme.colors.error, marginBottom: 8, fontStyle: 'italic' }}>
+              ⚠️ Si el mapa no aparece: Asegúrate de que Google Play Services esté actualizado y que la app tenga permisos de ubicación
+            </Text>
             <View style={styles.mapContainer}>
               <MapPicker
                 inline={true}

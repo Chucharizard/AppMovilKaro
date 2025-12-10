@@ -117,11 +117,11 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
     (async () => {
       if (origin && destination && (!routeGeo || routeGeo.length === 0)) {
         try {
-          const ok = await buildRoute();
-          if (ok && onConfirm) {
+          const result = await buildRoute();
+          if (result.success && onConfirm) {
             // avoid double-confirming the same pair
             try {
-              if (!cancelled) onConfirm({ origin, destination, routeGeo: routeGeo || null, summary });
+              if (!cancelled) onConfirm({ origin, destination, routeGeo: result.routeGeo || null, summary: result.summary || null });
             } catch (ex) { console.warn('[MapPicker] auto onConfirm failed', ex); }
           }
         } catch (e) {
@@ -133,7 +133,10 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
   }, [origin, destination]);
 
   const buildRoute = async () => {
-    if (!origin || !destination) return Alert.alert('Selecciona origen y destino');
+    if (!origin || !destination) {
+      Alert.alert('Selecciona origen y destino');
+      return { success: false };
+    }
     try {
       const coords = [ [origin.longitude, origin.latitude], [destination.longitude, destination.latitude] ];
       const url = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
@@ -141,7 +144,8 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
       const body = await res.json();
       if (!res.ok) {
         console.warn('[MapPicker] ORS error', body);
-        return Alert.alert('ORS error', (body && body.error) || JSON.stringify(body));
+        Alert.alert('ORS error', (body && body.error) || JSON.stringify(body));
+        return { success: false };
       }
       // GeoJSON coordinates are [lon, lat]
       const coordsLine = body && body.features && body.features[0] && body.features[0].geometry && body.features[0].geometry.coordinates;
@@ -150,27 +154,31 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
         const line = coordsLine.map(c => ({ latitude: c[1], longitude: c[0] }));
         setRouteGeo(line);
         setSummary(summaryObj || null);
-        return true;
+        return { success: true, routeGeo: line, summary: summaryObj || null };
       } else {
         Alert.alert('Ruta', 'No se encontró ruta entre puntos');
-        return false;
+        return { success: false };
       }
     } catch (e) {
       console.warn('[MapPicker] buildRoute failed', e);
       Alert.alert('Error', 'No se pudo obtener la ruta.');
-      return false;
+      return { success: false };
     }
   };
 
   const handleConfirm = async () => {
     if (!origin || !destination) return Alert.alert('Selecciona origen y destino');
     // If routeGeo not computed yet, compute it first
+    let finalRouteGeo = routeGeo;
+    let finalSummary = summary;
     if (!routeGeo || routeGeo.length === 0) {
-      const ok = await buildRoute();
-      if (!ok) return; // buildRoute already alerted
+      const result = await buildRoute();
+      if (!result.success) return; // buildRoute already alerted
+      finalRouteGeo = result.routeGeo;
+      finalSummary = result.summary;
     }
-    console.log('[MapPicker] handleConfirm sending', { origin, destination, routeGeo, summary });
-    if (onConfirm) onConfirm({ origin, destination, routeGeo, summary });
+    console.log('[MapPicker] handleConfirm sending', { origin, destination, routeGeo: finalRouteGeo, summary: finalSummary });
+    if (onConfirm) onConfirm({ origin, destination, routeGeo: finalRouteGeo, summary: finalSummary });
     if (!inline && onClose) onClose();
   };
 

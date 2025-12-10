@@ -479,21 +479,33 @@ export default function CarpoolingScreen({ user: userProp }) {
   // Try parsing a coordinate string like "lat,lon" or object -> { latitude, longitude }
   const parseCoord = (v) => {
     if (!v && v !== 0) return null;
-    if (typeof v === 'object') {
-      const lat = Number(v.latitude || v.lat || v.latitud || v.latitud);
+
+    // If it's an object, extract coordinates
+    if (typeof v === 'object' && v !== null) {
+      const lat = Number(v.latitude || v.lat || v.latitud);
       const lon = Number(v.longitude || v.lon || v.lng || v.longitud || v.long);
-      if (!Number.isNaN(lat) && !Number.isNaN(lon)) return { latitude: lat, longitude: lon };
+      if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat !== 0 && lon !== 0) {
+        return { latitude: lat, longitude: lon };
+      }
       return null;
     }
+
+    // If it's a string, try to parse it
     if (typeof v === 'string') {
-      const s = v.replace(/\s+/g, '');
-      const parts = s.split(',');
+      // Remove all whitespace
+      const cleaned = v.trim().replace(/\s+/g, '');
+
+      // Try parsing "lat,lon" format
+      const parts = cleaned.split(',');
       if (parts.length >= 2) {
         const lat = Number(parts[0]);
         const lon = Number(parts[1]);
-        if (!Number.isNaN(lat) && !Number.isNaN(lon)) return { latitude: lat, longitude: lon };
+        if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat !== 0 && lon !== 0) {
+          return { latitude: lat, longitude: lon };
+        }
       }
     }
+
     return null;
   };
 
@@ -715,10 +727,13 @@ export default function CarpoolingScreen({ user: userProp }) {
     const to = formatPlace(item.destino || item.punto_destino || item.destination || item.to);
     const driverName = item.conductor?.nombre || item.driver?.nombre || item.creator?.nombre || 'Conductor';
     const capacity = item.capacidad || item.seats_total || item.capacity || item.capacidad_ruta || '-';
-    // try parse coordinates for preview
-    const coordFrom = parseCoord(item.origin_coords || item.origin_coord || item.punto_inicio || item.origen || item.origin);
-    const coordTo = parseCoord(item.destination_coords || item.destination_coord || item.punto_destino || item.destino || item.destination);
+    // try parse coordinates for preview - check punto_inicio/punto_destino first (backend fields)
+    const coordFrom = parseCoord(item.punto_inicio || item.origen || item.origin_coords || item.origin_coord || item.origin);
+    const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
+
+    // Only show map if we have at least origin or destination coordinates
+    const showMap = coordFrom || coordTo;
     
     return (
       <View style={styles.routeCard}>
@@ -755,8 +770,8 @@ export default function CarpoolingScreen({ user: userProp }) {
             </View>
           </View>
         </View>
-        
-        {routeGeo || coordFrom || coordTo ? (
+
+        {showMap ? (
           <TouchableOpacity activeOpacity={0.9} onPress={() => {
             // open full map preview modal
             setPreviewOrigin(coordFrom);
@@ -770,20 +785,27 @@ export default function CarpoolingScreen({ user: userProp }) {
                 style={styles.miniMap}
                 mapType="standard"
                 initialRegion={(() => {
-                  const fallback = { latitude: -19.0196, longitude: -65.2619 };
-                  const a = coordFrom || (routeGeo && (routeGeo[0] && ({ latitude: routeGeo[0].latitude || routeGeo[0][1], longitude: routeGeo[0].longitude || routeGeo[0][0] }))) || fallback;
-                  const b = coordTo || (routeGeo && (routeGeo[routeGeo.length-1] && ({ latitude: routeGeo[routeGeo.length-1].latitude || routeGeo[routeGeo.length-1][1], longitude: routeGeo[routeGeo.length-1].longitude || routeGeo[routeGeo.length-1][0] }))) || a;
+                  const fallback = { latitude: -19.0196, longitude: -65.2619, latitudeDelta: 0.02, longitudeDelta: 0.02 };
+                  if (!coordFrom && !coordTo) return fallback;
+
+                  const a = coordFrom || coordTo || fallback;
+                  const b = coordTo || coordFrom || a;
                   const latDelta = Math.max(0.005, Math.abs((a.latitude || 0) - (b.latitude || 0)) * 1.6);
                   const lonDelta = Math.max(0.005, Math.abs((a.longitude || 0) - (b.longitude || 0)) * 1.6);
-                  return { latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2, longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2, latitudeDelta: Math.min(latDelta, 0.3), longitudeDelta: Math.min(lonDelta, 0.3) };
+                  return {
+                    latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2,
+                    longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2,
+                    latitudeDelta: Math.min(latDelta, 0.3),
+                    longitudeDelta: Math.min(lonDelta, 0.3)
+                  };
                 })()}
                 scrollEnabled={false}
                 zoomEnabled={false}
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" /> : null}
-                {coordTo ? <Marker coordinate={coordTo} pinColor="red" /> : null}
+                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" title="Origen" /> : null}
+                {coordTo ? <Marker coordinate={coordTo} pinColor="red" title="Destino" /> : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
                   <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
                 ) : null}
@@ -795,7 +817,7 @@ export default function CarpoolingScreen({ user: userProp }) {
         {item.descripcion || item.description ? (
           <Text style={styles.routeDescription}>{item.descripcion || item.description}</Text>
         ) : null}
-        
+
         <View style={styles.routeFooter}>
           <View style={styles.routeStats}>
             <Text style={styles.routeStatItem}>👥 {capacity} asientos</Text>
@@ -828,9 +850,13 @@ export default function CarpoolingScreen({ user: userProp }) {
     const from = formatPlace(item.origen || item.punto_inicio || item.origin || item.from);
     const to = formatPlace(item.destino || item.punto_destino || item.destination || item.to);
     const capacity = item.capacidad || item.seats_total || item.capacity || item.capacidad_ruta || '-';
-    const coordFrom = parseCoord(item.origin_coords || item.origin_coord || item.punto_inicio || item.origen || item.origin);
-    const coordTo = parseCoord(item.destination_coords || item.destination_coord || item.punto_destino || item.destino || item.destination);
+    // try parse coordinates for preview - check punto_inicio/punto_destino first (backend fields)
+    const coordFrom = parseCoord(item.punto_inicio || item.origen || item.origin_coords || item.origin_coord || item.origin);
+    const coordTo = parseCoord(item.punto_destino || item.destino || item.destination_coords || item.destination_coord || item.destination);
     const routeGeo = item.route_geo || item.routeGeo || item.geometry || item.geojson || item.geometry_geo || null;
+
+    // Only show map if we have at least origin or destination coordinates
+    const showMap = coordFrom || coordTo;
     return (
       <View style={styles.myRouteCard}>
         <View style={styles.myRouteHeader}>
@@ -859,8 +885,8 @@ export default function CarpoolingScreen({ user: userProp }) {
             </View>
           </View>
         </View>
-        
-        {routeGeo || coordFrom || coordTo ? (
+
+        {showMap ? (
           <TouchableOpacity activeOpacity={0.9} onPress={() => {
             // open full map preview modal
             setPreviewOrigin(coordFrom);
@@ -874,20 +900,27 @@ export default function CarpoolingScreen({ user: userProp }) {
                 style={styles.miniMap}
                 mapType="standard"
                 initialRegion={(() => {
-                  const fallback = { latitude: -19.0196, longitude: -65.2619 };
-                  const a = coordFrom || (routeGeo && (routeGeo[0] && ({ latitude: routeGeo[0].latitude || routeGeo[0][1], longitude: routeGeo[0].longitude || routeGeo[0][0] }))) || fallback;
-                  const b = coordTo || (routeGeo && (routeGeo[routeGeo.length-1] && ({ latitude: routeGeo[routeGeo.length-1].latitude || routeGeo[routeGeo.length-1][1], longitude: routeGeo[routeGeo.length-1].longitude || routeGeo[routeGeo.length-1][0] }))) || a;
+                  const fallback = { latitude: -19.0196, longitude: -65.2619, latitudeDelta: 0.02, longitudeDelta: 0.02 };
+                  if (!coordFrom && !coordTo) return fallback;
+
+                  const a = coordFrom || coordTo || fallback;
+                  const b = coordTo || coordFrom || a;
                   const latDelta = Math.max(0.005, Math.abs((a.latitude || 0) - (b.latitude || 0)) * 1.6);
                   const lonDelta = Math.max(0.005, Math.abs((a.longitude || 0) - (b.longitude || 0)) * 1.6);
-                  return { latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2, longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2, latitudeDelta: Math.min(latDelta, 0.3), longitudeDelta: Math.min(lonDelta, 0.3) };
+                  return {
+                    latitude: ((a.latitude || 0) + (b.latitude || 0)) / 2,
+                    longitude: ((a.longitude || 0) + (b.longitude || 0)) / 2,
+                    latitudeDelta: Math.min(latDelta, 0.3),
+                    longitudeDelta: Math.min(lonDelta, 0.3)
+                  };
                 })()}
                 scrollEnabled={false}
                 zoomEnabled={false}
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" /> : null}
-                {coordTo ? <Marker coordinate={coordTo} pinColor="red" /> : null}
+                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" title="Origen" /> : null}
+                {coordTo ? <Marker coordinate={coordTo} pinColor="red" title="Destino" /> : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
                   <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
                 ) : null}

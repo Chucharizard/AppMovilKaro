@@ -804,8 +804,12 @@ export default function CarpoolingScreen({ user: userProp }) {
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" title="Origen" /> : null}
-                {coordTo ? <Marker coordinate={coordTo} pinColor="red" title="Destino" /> : null}
+                {coordFrom && coordFrom.latitude && coordFrom.longitude ? (
+                  <Marker coordinate={coordFrom} pinColor="green" title="Origen" />
+                ) : null}
+                {coordTo && coordTo.latitude && coordTo.longitude ? (
+                  <Marker coordinate={coordTo} pinColor="red" title="Destino" />
+                ) : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
                   <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
                 ) : null}
@@ -919,8 +923,12 @@ export default function CarpoolingScreen({ user: userProp }) {
                 pitchEnabled={false}
                 rotateEnabled={false}
               >
-                {coordFrom ? <Marker coordinate={coordFrom} pinColor="green" title="Origen" /> : null}
-                {coordTo ? <Marker coordinate={coordTo} pinColor="red" title="Destino" /> : null}
+                {coordFrom && coordFrom.latitude && coordFrom.longitude ? (
+                  <Marker coordinate={coordFrom} pinColor="green" title="Origen" />
+                ) : null}
+                {coordTo && coordTo.latitude && coordTo.longitude ? (
+                  <Marker coordinate={coordTo} pinColor="red" title="Destino" />
+                ) : null}
                 {Array.isArray(normalizeRouteGeo(routeGeo)) ? (
                   <Polyline coordinates={normalizeRouteGeo(routeGeo)} strokeColor="#0a84ff" strokeWidth={4} />
                 ) : null}

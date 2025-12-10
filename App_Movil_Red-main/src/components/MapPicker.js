@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ORS_API_KEY, GOOGLE_MAPS_API_KEY } from '../config';
 import MapWebFallback from './MapWebFallback';
 
@@ -24,15 +23,15 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
   useEffect(() => {
     // If native map doesn't become ready within a short timeout, show web fallback.
     let to = null;
-    if (!mapReady && !mapInitTried) {
+    if (visible && !mapReady && !mapInitTried && !showWeb) {
       to = setTimeout(() => {
-        console.warn('[MapPicker] native map not ready after timeout, opening web fallback');
+        console.warn('[MapPicker] native map not ready after timeout, switching to web fallback');
         setShowWeb(true);
         setMapInitTried(true);
-      }, 4000);
+      }, 3000);
     }
     return () => { if (to) clearTimeout(to); };
-  }, [mapReady, mapInitTried]);
+  }, [visible, mapReady, mapInitTried, showWeb]);
 
   useEffect(() => {
     // when modal closed or when component unmounts/reset, clear selection
@@ -183,121 +182,57 @@ export default function MapPicker({ visible, onClose, onConfirm, initialRegion, 
     if (!inline && onClose) onClose();
   };
 
-  // WebView-based Google Maps (fallback for devices without Google Play Services)
-  const centerLat = (initialRegion || region).latitude || -19.0196;
-  const centerLng = (initialRegion || region).longitude || -65.2619;
-
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-    #map { height: 100%; width: 100%; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}"></script>
-  <script>
-    let map, originMarker, destinationMarker, routeLine;
-    const origin = ${origin ? `{lat: ${origin.latitude}, lng: ${origin.longitude}}` : 'null'};
-    const destination = ${destination ? `{lat: ${destination.latitude}, lng: ${destination.longitude}}` : 'null'};
-
-    function initMap() {
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: ${centerLat}, lng: ${centerLng} },
-        zoom: 13,
-        mapTypeId: 'roadmap'
-      });
-
-      if (origin) {
-        originMarker = new google.maps.Marker({
-          position: origin,
-          map: map,
-          title: 'Origen',
-          icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        });
-      }
-
-      if (destination) {
-        destinationMarker = new google.maps.Marker({
-          position: destination,
-          map: map,
-          title: 'Destino',
-          icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        });
-      }
-
-      ${routeGeo && Array.isArray(routeGeo) && routeGeo.length > 0 ? `
-        const routePath = ${JSON.stringify(routeGeo.map(c => ({ lat: c.latitude, lng: c.longitude })))};
-        routeLine = new google.maps.Polyline({
-          path: routePath,
-          geodesic: true,
-          strokeColor: '#0a84ff',
-          strokeOpacity: 1.0,
-          strokeWeight: 4
-        });
-        routeLine.setMap(map);
-      ` : ''}
-
-      map.addListener('click', function(e) {
-        const lat = e.latLng.lat();
-        const lng = e.latLng.lng();
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'mapClick',
-          latitude: lat,
-          longitude: lng
-        }));
-      });
-
-      // Signal that map is ready
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-    }
-
-    initMap();
-  </script>
-</body>
-</html>
-  `;
-
   const content = (
     <View style={{ flex: 1, position: 'relative', backgroundColor: '#f5f5f5' }}>
-      {!mapReady && (
+      {!mapReady && !showWeb && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', zIndex: 1000 }}>
           <ActivityIndicator size="large" color="#0a84ff" />
           <Text style={{ fontSize: 16, color: '#666', marginTop: 16 }}>🗺️ Cargando mapa...</Text>
-          <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>Google Maps JavaScript API</Text>
+          <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{showWeb ? 'OpenStreetMap' : 'Google Maps nativo'}</Text>
         </View>
       )}
-      <WebView
+      <MapView
         ref={mapRef}
-        source={{ html: htmlContent }}
-        style={{ flex: 1 }}
-        onMessage={(event) => {
-          try {
-            const data = JSON.parse(event.nativeEvent.data);
-            console.log('[MapPicker WebView] Message:', data);
-
-            if (data.type === 'mapReady') {
-              console.log('[MapPicker] ✅ WebView map ready!');
-              setMapReady(true);
-              setShowWeb(false);
-            } else if (data.type === 'mapClick') {
-              handlePress({ nativeEvent: { coordinate: { latitude: data.latitude, longitude: data.longitude } } });
-            }
-          } catch (e) {
-            console.warn('[MapPicker WebView] Message parse error:', e);
-          }
+        provider={showWeb ? null : PROVIDER_GOOGLE}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        initialRegion={DEFAULT_SUCRE_REGION}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        onMapReady={() => {
+          console.log('[MapPicker] ✅ Map ready! (provider:', showWeb ? 'default/OSM' : 'Google', ')');
+          setMapReady(true);
         }}
         onError={(e) => {
-          console.error('[MapPicker WebView] Error:', e);
-          Alert.alert('Error del mapa', 'No se pudo cargar Google Maps. Verifica tu conexión a internet.');
+          console.error('[MapPicker] MapView error:', e);
+          if (!showWeb) {
+            console.warn('[MapPicker] Switching to default provider (OSM) due to error');
+            setShowWeb(true);
+            setMapReady(false);
+          }
         }}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-      />
+      >
+        {origin && (
+          <Marker
+            coordinate={origin}
+            title="Origen"
+            pinColor="green"
+          />
+        )}
+        {destination && (
+          <Marker
+            coordinate={destination}
+            title="Destino"
+            pinColor="red"
+          />
+        )}
+        {routeGeo && routeGeo.length > 0 && (
+          <Polyline
+            coordinates={routeGeo}
+            strokeColor="#0a84ff"
+            strokeWidth={4}
+          />
+        )}
+      </MapView>
 
         {/* Instructions overlay */}
         <View style={styles.instructionsOverlay}>

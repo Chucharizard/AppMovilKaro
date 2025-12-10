@@ -11,7 +11,7 @@ export const SERPAPI_KEY = process.env.SERPAPI_KEY || '';
 
 // Google Maps API Key (for Places HTTP API and native maps on Android/iOS)
 // WARNING: prefer setting this via environment variable and restricting the key in GCP.
-export const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AlZaSyABvKLQ0xiYdWeWmkCj8r1uWJLzrD1B-rM';
+export const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDEgPgjtdhEuqNIzJWyZuwbaXh1jRbKwFc';
 // Default map provider used by MapPicker: 'google' or 'osm'
 export const DEFAULT_MAP_PROVIDER = process.env.DEFAULT_MAP_PROVIDER || 'google';
 
